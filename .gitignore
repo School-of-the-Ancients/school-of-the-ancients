@@ -1,0 +1,13 @@
+node_modules/
+.data/
+.school-data/
+.env
+.env.*
+!.env.example
+*.log
+*.tmp
+coverage/
+test-results/
+playwright-report/
+work/
+.DS_Store
