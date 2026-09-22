@@ -64,7 +64,7 @@ export class SchoolService {
     return { apiVersion: 1 as const, provider: this.provider.status(), capabilities: [
       { id: 'lesson.text.v1', version: 1, available: true, reason: 'Standalone mentor lesson and durable transcript.' },
       { id: 'experiment.scale.v1', version: 1, available: true, reason: 'Deterministic browser geometry illustration; not a Unity or physical-room observation.' },
-      { id: 'mentor.voice.v1', version: 1, available: false, reason: 'Voice is a planned optional adapter. This candidate supports text.' },
+      { id: 'mentor.voice.v1', version: 1, available: false, reason: 'Conversational voice input and a server voice provider are not connected. Optional device speech playback is detected in the browser.' },
       { id: 'matrix.scene.v1', version: 1, available: true, reason: 'Optional local companion adapter. Each lesson needs explicit pairing and current readiness; the Matrix owner controls Apply.' },
     ] };
   }

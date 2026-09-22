@@ -9,11 +9,91 @@ function session(overrides = {}) {
   return { id: 'session-1', revision: 1, mentorId: 'galileo', lessonId: OBSERVATION_LESSON.id, lessonVersion: '1.0.0', mentor: structuredClone(GALILEO), lesson: structuredClone(OBSERVATION_LESSON), stage: 'explain', stageContent: stageContent(OBSERVATION_LESSON, 'explain'), status: 'active', messages: [{ id: 'm1', role: 'mentor', text: 'Look closely. <script>not executable</script>', stage: 'explain', createdAt: now, providerMode: 'demo' }], events: [], artifact: { type: 'scale', dimensions: [1, 1, 1], baseline: [1, 1, 1], volume: 1, volumeRatio: 1, units: 'units', observedAt: now, source: 'browser-deterministic' }, createdAt: now, updatedAt: now, savedAt: now, completionLabel: 'Participation recorded, not mastery.', ...overrides };
 }
 const tick = () => new Promise(resolve => setImmediate(resolve));
+
+function speechFixture(local = true) {
+  return { utterances: [], cancellations: 0,
+    getVoices() { return [{ name: 'Fixture English', lang: 'en-US', localService: local, default: true }]; },
+    addEventListener() {}, removeEventListener() {},
+    cancel() { this.cancellations++; },
+    speak(utterance) { this.utterances.push(utterance); utterance.onstart?.(); },
+  };
+}
+
+test('mentor audio is manual and speaks the exact saved reply without changing the lesson', async t => {
+  const voice = speechFixture();
+  const client = await harness(t, (path, options) => path === '/api/v1/sessions' && options.method === 'POST' ? { apiVersion: 1, session: session() } : undefined, voice);
+  await client.click('start');
+  assert.equal(voice.utterances.length, 0);
+  assert.match(client.app.innerHTML, /Listen to latest reply/);
+  const requestsBefore = client.calls.length;
+  await client.click('speech-play');
+  assert.equal(voice.utterances.length, 1);
+  assert.equal(voice.utterances[0].text, session().messages[0].text);
+  assert.match(client.app.innerHTML, /Stop audio/);
+  assert.equal(client.calls.length, requestsBefore);
+  await client.click('speech-stop');
+  assert.match(client.app.innerHTML, /Listen to latest reply/);
+  voice.utterances[0].onend?.();
+  assert.equal(voice.utterances.length, 1);
+  await client.click('speech-play');
+  assert.equal(voice.utterances.length, 2);
+  assert.equal(voice.utterances[1].text, session().messages[0].text);
+  await client.click('home');
+});
+
+test('sending a question stops audio and a late voice event cannot restart the prior reply', async t => {
+  const voice = speechFixture(); let resolvePoll;
+  const initial = session(); const running = { id: 'voice-turn', status: 'running', kind: 'question' };
+  const client = await harness(t, (path, options) => {
+    if (path === '/api/v1/sessions' && options.method === 'POST') return { apiVersion: 1, session: initial };
+    if (path.endsWith('/sessions/session-1/turns')) return { apiVersion: 1, session: { ...initial, activeTurnId: 'voice-turn' }, turn: running };
+    if (path === '/api/v1/turns/voice-turn') return new Promise(resolve => { resolvePoll = resolve; });
+    if (path.endsWith('/turns/voice-turn/cancel')) return { apiVersion: 1, session: initial, turn: { ...running, status: 'cancelled' } };
+  }, voice);
+  await client.click('start'); await client.click('speech-play');
+  const before = voice.cancellations;
+  client.input('What happens when width doubles?'); await client.send();
+  assert.ok(voice.cancellations > before);
+  assert.match(client.app.innerHTML, /data-action="speech-play" disabled/);
+  voice.utterances[0].onstart?.(); voice.utterances[0].onend?.();
+  assert.equal(voice.utterances.length, 1);
+  assert.doesNotMatch(client.app.innerHTML, /data-action="speech-stop"/);
+  await client.click('cancel');
+  resolvePoll({ apiVersion: 1, session: initial, turn: { ...running, status: 'completed' } }); await settle();
+  assert.equal(voice.utterances.length, 1);
+  await client.click('home');
+});
+
+test('leaving a lesson cancels speech and a different lesson never auto-plays it', async t => {
+  const voice = speechFixture(); let starts = 0;
+  const client = await harness(t, (path, options) => path === '/api/v1/sessions' && options.method === 'POST'
+    ? { apiVersion: 1, session: session({ id: `lesson-${++starts}` }) } : undefined, voice);
+  await client.click('start'); await client.click('speech-play');
+  const before = voice.cancellations;
+  await client.click('home'); assert.ok(voice.cancellations > before);
+  await client.click('start');
+  voice.utterances[0].onstart?.(); voice.utterances[0].onend?.();
+  assert.equal(voice.utterances.length, 1);
+  assert.doesNotMatch(client.app.innerHTML, /data-action="speech-stop"/);
+  await client.click('home');
+});
+
+test('a remote-only voice leaves text fully usable without a cloud fallback', async t => {
+  const voice = speechFixture(false);
+  const client = await harness(t, (path, options) => path === '/api/v1/sessions' && options.method === 'POST' ? { apiVersion: 1, session: session() } : undefined, voice);
+  await client.click('start');
+  assert.match(client.app.innerHTML, /data-action="speech-play" disabled/);
+  assert.match(client.app.innerHTML, /Look closely/);
+  await client.click('speech-play');
+  assert.equal(voice.utterances.length, 0);
+  assert.match(client.app.innerHTML, /data-action="advance"/);
+  await client.click('home');
+});
 async function settle() { for (let i = 0; i < 12; i++) await tick(); }
 let importIndex = 0;
 
-async function harness(t, route = () => undefined) {
-  const originals = { fetch: globalThis.fetch, document: globalThis.document, window: globalThis.window };
+async function harness(t, route = () => undefined, speech) {
+  const originals = { fetch: globalThis.fetch, document: globalThis.document, window: globalThis.window, speechSynthesis: globalThis.speechSynthesis, SpeechSynthesisUtterance: globalThis.SpeechSynthesisUtterance };
   const listeners = new Map(); const elements = new Map(); const calls = [];
   const app = { innerHTML: '', addEventListener(name, callback) { listeners.set(name, callback); } };
   const element = selector => {
@@ -22,6 +102,8 @@ async function harness(t, route = () => undefined) {
   };
   globalThis.document = { activeElement: null, querySelector(selector) { return selector === '#app' ? app : element(selector); } };
   globalThis.window = { scrollTo() {} };
+  globalThis.speechSynthesis = speech;
+  globalThis.SpeechSynthesisUtterance = speech ? class { constructor(text) { this.text = text; } } : undefined;
   globalThis.fetch = async (path, options) => {
     calls.push({ path, method: options.method, body: options.body ? JSON.parse(options.body) : undefined });
     let result = await route(path, options, calls);
@@ -34,7 +116,7 @@ async function harness(t, route = () => undefined) {
     assert.ok(result, `No fixture for ${options.method} ${path}`);
     return { ok: true, status: 200, json: async () => structuredClone(result) };
   };
-  t.after(() => { globalThis.fetch = originals.fetch; globalThis.document = originals.document; globalThis.window = originals.window; });
+  t.after(() => { Object.assign(globalThis, originals); });
   await import(`../../public/app.js?client-test=${++importIndex}`);
   await settle();
   return {

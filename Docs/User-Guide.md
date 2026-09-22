@@ -12,6 +12,12 @@
 
 Saved work belongs to this PC's School data directory. This local candidate has no accounts or cloud sync. Do not treat it as a shared classroom deployment. Closing the browser does not stop the service; Ctrl+C in its terminal does.
 
+## Listen to a mentor reply
+
+Choose **Listen to latest reply** below the transcript to hear the latest saved mentor text. Playback uses a local English device voice when your browser exposes one; the control displays its availability and voice name. **Stop audio** stops playback, and the listen button replays the reply from the beginning.
+
+Starting another turn, changing lessons, returning to the academy or hiding the page stops audio. Replies never play automatically. If audio is unavailable or fails, the transcript and typed lesson remain usable. **Stop response** still cancels a pending mentor answer; it is separate from **Stop audio**. See [mentor read-aloud](Mentor-Speech.md) for details.
+
 ## What the workbench means
 
 The workbench is a mathematical illustration of a rectangular block. It calculates volume from three simulated dimensions. It does not observe gravity, mass, your physical room, or a Matrix object. The lesson records participation and reflection; an incorrect response is not automatically a mastery pass.
@@ -33,4 +39,4 @@ The browser's **Apply experiment** still changes only its mathematical illustrat
 
 If School restarts, your successful demonstration history remains saved, but its temporary connection credentials are gone. Pending work becomes unconfirmed and is never automatically repeated. Inspect unresolved work in the original Operator before pairing again. You can always continue the browser lesson without Matrix. See [connection details and troubleshooting](Matrix-Bridge.md).
 
-Voice, live historical avatars, additional lessons, hosted student sessions and in-headset teaching are subsequent roadmap work. Their absence does not prevent this text lesson from running.
+Voice input, live historical avatars, additional lessons, hosted student sessions and in-headset teaching are subsequent roadmap work. Optional browser read-aloud uses an ordinary device voice. The text lesson remains available independently.

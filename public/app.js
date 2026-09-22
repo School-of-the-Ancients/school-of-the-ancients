@@ -1,12 +1,32 @@
 import { createApiClient, escapeHtml as h, STAGES, STAGE_LABELS, ANSWER_LABELS, stageProgress, providerPresentation, normalDimensions, dimensionsEqual, volumeOf, numberLabel, makeRequestId, formatSavedAt, safeSourceUrl } from './client-core.js';
 import { scaleDiagram } from './scale-view.js';
 import { createMatrixPanel } from './matrix-panel.js';
+import { createMentorSpeech } from './mentor-speech.js';
 
 const api = createApiClient();
 const app = document.querySelector('#app');
 const state = { catalog: null, capabilities: [], sessions: [], session: null, turn: null, loading: true, busy: false, busyLabel: '', error: '', retry: null, notice: '', draft: '', intent: 'question', dimensions: [1, 1, 1], selectedMentor: '', selectedLesson: '', pollGeneration: 0 };
 let pollTimer;
 const matrixPanel = createMatrixPanel({ api, getSession: () => state.session, onSession: session => adoptSession(session), onChange: () => render() });
+const mentorSpeech = createMentorSpeech({ onChange: () => render() });
+
+function syncSpeechContext() {
+  const session = state.session;
+  const message = session?.messages.findLast(item => item.role === 'mentor');
+  mentorSpeech.setContext(message && !session.activeTurnId && state.turn?.status !== 'running'
+    ? { sessionId: session.id, messageId: message.id, text: message.text } : null);
+}
+
+function speechControls() {
+  const voice = mentorSpeech.state();
+  const playing = voice.status === 'starting' || voice.status === 'speaking';
+  const disabled = !voice.canPlay || state.busy || state.turn?.status === 'running';
+  return `<div class="mentor-speech" aria-label="Mentor audio"><div class="mentor-speech-actions">${playing
+    ? '<button class="text-button" data-action="speech-stop">Stop audio</button>'
+    : `<button class="text-button" data-action="speech-play" ${disabled ? 'disabled' : ''}>Listen to latest reply</button>`}
+    <span role="status">${h(playing ? (voice.status === 'starting' ? 'Starting audio…' : 'Reading the latest reply') : voice.reason || 'Ready when you are.')}</span></div>
+    <small>${h(voice.available && voice.voiceName ? `Device voice: ${voice.voiceName}. ` : '')}The transcript stays visible. This is optional playback, not voice input or a historical voice.</small></div>`;
+}
 
 const icons = {
   arrow: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"/></svg>',
@@ -75,7 +95,8 @@ function conversation(session) {
   const label = state.intent === 'question' ? 'Ask Galileo' : (ANSWER_LABELS[session.stage] || 'Share response');
   return `<section class="conversation-panel" aria-labelledby="conversation-title"><div class="conversation-heading"><div><span class="eyebrow">A CONVERSATION WITH</span><h2 id="conversation-title">${h(session.mentor.name)}</h2></div><span class="conversation-mode">${providerBadge()}</span></div>
     <div class="transcript" id="transcript" role="log" aria-live="polite" aria-relevant="additions text">${session.messages.map(message => `<article class="message ${h(message.role)}"><div class="message-avatar" aria-hidden="true">${message.role === 'mentor' ? 'G' : message.role === 'learner' ? 'Y' : '·'}</div><div class="message-body"><div class="message-meta"><strong>${message.role === 'mentor' ? h(session.mentor.name.split(' ')[0]) : message.role === 'learner' ? 'You' : 'Lesson note'}</strong>${message.role === 'mentor' ? `<span>${message.providerMode === 'codex-cli' ? 'AI RESPONSE' : 'AUTHORED'}</span>` : ''}</div><p>${h(message.text)}</p></div></article>`).join('')}${pending ? `<article class="message mentor pending-message"><div class="message-avatar" aria-hidden="true">G</div><div class="message-body"><div class="thinking-dots" aria-hidden="true"><i></i><i></i><i></i></div><p>${state.catalog?.provider?.mode === 'demo' ? 'Preparing the next part of your exploration…' : 'Considering your question…'}</p></div></article>` : ''}</div>
-    ${closed ? `<div class="completion-card"><span class="completion-symbol">${icons.check}</span><div><h3>A discovery worth keeping.</h3><p>${h(session.completionLabel || 'You completed this exploration. Your conversation and reflection are saved.')}</p><small>Completion records participation, not a mastery assessment.</small></div></div><div class="completion-actions"><button class="button" data-action="home">Return to the academy${icons.arrow}</button><button class="text-button" data-action="export">Export notebook</button></div>` : `<div class="conversation-composer"><div class="suggestions" aria-label="Suggested questions">${suggestions.slice(0, 2).map(text => `<button data-action="suggestion" data-text="${h(text)}" ${state.busy || pending ? 'disabled' : ''}>${h(text)}</button>`).join('')}</div><div class="intent-switch" role="group" aria-label="Message purpose"><button data-action="intent" data-value="question" aria-pressed="${state.intent === 'question'}" ${state.busy || pending ? 'disabled' : ''}>Ask a question</button><button data-action="intent" data-value="answer" aria-pressed="${state.intent === 'answer'}" ${state.busy || pending ? 'disabled' : ''}>Respond to the lesson</button></div><form id="message-form"><label class="sr-only" for="message-input">${h(label)}</label><textarea id="message-input" name="message" rows="2" maxlength="4000" placeholder="${state.intent === 'question' ? 'What are you curious about?' : h(session.stageContent.prompt)}" ${state.busy || pending ? 'disabled' : ''}>${h(state.draft)}</textarea><div class="composer-bottom"><span class="voice-unavailable" title="Voice is not connected in this version. All lesson actions work through text.">${icons.mic}<span>Text mode · voice optional</span></span>${pending ? `<button type="button" class="button button-small button-stop" data-action="cancel" ${state.busy ? 'disabled' : ''}>Stop response</button>` : `<button type="submit" class="button button-small" id="send-message" ${state.busy || !state.draft.trim() ? 'disabled' : ''}>${state.busy ? h(state.busyLabel) : h(label)}${icons.arrow}</button>`}</div></form><p class="composer-note">${state.intent === 'question' ? 'Questions keep you on the current lesson step.' : 'Your response advances the lesson after the mentor replies.'} <span>Enter to send · Shift + Enter for a new line</span></p></div>`}
+    ${speechControls()}
+    ${closed ? `<div class="completion-card"><span class="completion-symbol">${icons.check}</span><div><h3>A discovery worth keeping.</h3><p>${h(session.completionLabel || 'You completed this exploration. Your conversation and reflection are saved.')}</p><small>Completion records participation, not a mastery assessment.</small></div></div><div class="completion-actions"><button class="button" data-action="home">Return to the academy${icons.arrow}</button><button class="text-button" data-action="export">Export notebook</button></div>` : `<div class="conversation-composer"><div class="suggestions" aria-label="Suggested questions">${suggestions.slice(0, 2).map(text => `<button data-action="suggestion" data-text="${h(text)}" ${state.busy || pending ? 'disabled' : ''}>${h(text)}</button>`).join('')}</div><div class="intent-switch" role="group" aria-label="Message purpose"><button data-action="intent" data-value="question" aria-pressed="${state.intent === 'question'}" ${state.busy || pending ? 'disabled' : ''}>Ask a question</button><button data-action="intent" data-value="answer" aria-pressed="${state.intent === 'answer'}" ${state.busy || pending ? 'disabled' : ''}>Respond to the lesson</button></div><form id="message-form"><label class="sr-only" for="message-input">${h(label)}</label><textarea id="message-input" name="message" rows="2" maxlength="4000" placeholder="${state.intent === 'question' ? 'What are you curious about?' : h(session.stageContent.prompt)}" ${state.busy || pending ? 'disabled' : ''}>${h(state.draft)}</textarea><div class="composer-bottom"><span class="voice-unavailable" title="Type your questions here. Optional mentor playback is above the composer.">${icons.mic}<span>Type a question · audio optional</span></span>${pending ? `<button type="button" class="button button-small button-stop" data-action="cancel" ${state.busy ? 'disabled' : ''}>Stop response</button>` : `<button type="submit" class="button button-small" id="send-message" ${state.busy || !state.draft.trim() ? 'disabled' : ''}>${state.busy ? h(state.busyLabel) : h(label)}${icons.arrow}</button>`}</div></form><p class="composer-note">${state.intent === 'question' ? 'Questions keep you on the current lesson step.' : 'Your response advances the lesson after the mentor replies.'} <span>Enter to send · Shift + Enter for a new line</span></p></div>`}
   </section>`;
 }
 
@@ -91,6 +112,8 @@ function lesson() {
 }
 
 function render({ scrollTranscript = false } = {}) {
+  syncSpeechContext();
+  const restoreSpeechFocus = document.activeElement?.dataset?.action?.startsWith('speech-');
   const previousScroll = document.querySelector('#transcript')?.scrollTop || 0;
   const oldInput = document.querySelector('#message-input');
   const restoreInputFocus = Boolean(oldInput && document.activeElement === oldInput);
@@ -107,6 +130,7 @@ function render({ scrollTranscript = false } = {}) {
   }
   const input = document.querySelector('#message-input');
   if (restoreInputFocus && input && !input.disabled) { input.focus({ preventScroll: true }); input.setSelectionRange(...selection); }
+  if (restoreSpeechFocus) document.querySelector('[data-action="speech-stop"], [data-action="speech-play"]')?.focus({ preventScroll: true });
 }
 
 function adoptSession(session, { reset = false } = {}) {
@@ -201,6 +225,7 @@ async function refreshSession(id) {
 function sendTurn(kind, text = '') {
   if (!state.session || state.session.status === 'completed' || state.turn?.status === 'running' || state.busy) return;
   if (kind !== 'advance' && !text.trim()) return;
+  mentorSpeech.stop();
   const id = state.session.id;
   const submittedDraft = state.draft;
   const body = { requestId: makeRequestId(), expectedRevision: state.session.revision, kind, ...(text.trim() ? { text: text.trim() } : {}) };
@@ -254,6 +279,8 @@ app.addEventListener('click', async event => {
   const button = event.target.closest('[data-action]');
   if (!button || button.disabled) return;
   const action = button.dataset.action;
+  if (action === 'speech-stop') { mentorSpeech.stop(); return; }
+  if (action === 'speech-play') { if (!state.busy && state.turn?.status !== 'running') mentorSpeech.play(); return; }
   if (action === 'dismiss-error') { state.error = ''; state.retry = null; render(); return; }
   if (action === 'retry') { const retry = state.retry; state.error = ''; state.retry = null; await retry?.(); return; }
   if (action === 'bootstrap') { await bootstrap(); return; }
@@ -278,10 +305,13 @@ app.addEventListener('click', async event => {
     await operation('Recording experiment…', async () => { const { session } = await api(`/sessions/${encodeURIComponent(id)}/experiment`, body); adoptSession(session); state.notice = 'Experiment recorded. Your mentor can now discuss this simulated result.'; });
   }
   if (action === 'cancel' && state.turn) {
+    mentorSpeech.stop();
     const id = state.turn.id; const body = { requestId: makeRequestId() };
     await operation('Stopping…', async () => { const result = await api(`/turns/${encodeURIComponent(id)}/cancel`, body); stopPolling(); adoptSession(result.session); state.turn = result.turn; state.notice = result.turn.status === 'cancelled' ? 'Response stopped. The lesson step has not advanced.' : 'The response finished before it could be stopped. Its recorded result is shown.'; });
   }
   if (action === 'export') await exportSession();
 });
 
+window.addEventListener?.('pagehide', () => mentorSpeech.stop());
+document.addEventListener?.('visibilitychange', () => { if (document.hidden) mentorSpeech.stop(); });
 void bootstrap();
