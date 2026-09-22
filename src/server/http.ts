@@ -52,12 +52,20 @@ export function createSchoolServer(options: { service: SchoolService; publicDire
         let match = /^\/api\/v1\/sessions\/([a-zA-Z0-9_-]+)(\/export)?$/.exec(path);
         if (match) { if (match[2]) res.setHeader('Content-Disposition', `attachment; filename="school-session-${match[1]}.json"`); json(res, 200, match[2] ? service.export(match[1]) : service.session(match[1])); return; }
         match = /^\/api\/v1\/turns\/([a-zA-Z0-9_-]+)$/.exec(path); if (match) { json(res, 200, service.turn(match[1])); return; }
+        match = /^\/api\/v1\/sessions\/([a-zA-Z0-9_-]+)\/matrix$/.exec(path); if (match) { json(res, 200, await service.matrix.status(match[1])); return; }
+        match = /^\/api\/v1\/sessions\/([a-zA-Z0-9_-]+)\/matrix\/demonstrations\/([a-zA-Z0-9_-]+)$/.exec(path); if (match) { json(res, 200, await service.matrix.poll(match[1], match[2])); return; }
       } else if (req.method === 'POST') {
         const body = await readBody(req);
         if (path === '/api/v1/sessions') { json(res, 201, service.start(body)); return; }
         let match = /^\/api\/v1\/sessions\/([a-zA-Z0-9_-]+)\/turns$/.exec(path); if (match) { json(res, 202, service.createTurn(match[1], body)); return; }
         match = /^\/api\/v1\/sessions\/([a-zA-Z0-9_-]+)\/experiment$/.exec(path); if (match) { json(res, 200, service.experiment(match[1], body)); return; }
         match = /^\/api\/v1\/turns\/([a-zA-Z0-9_-]+)\/cancel$/.exec(path); if (match) { json(res, 200, service.cancel(match[1], body)); return; }
+        match = /^\/api\/v1\/sessions\/([a-zA-Z0-9_-]+)\/matrix\/(pair|disconnect|demonstrations)$/.exec(path);
+        if (match) {
+          const result = match[2] === 'pair' ? await service.matrix.pair(match[1], body) : match[2] === 'disconnect' ? service.matrix.disconnect(match[1], body) : await service.matrix.request(match[1], body);
+          json(res, 200, result); return;
+        }
+        match = /^\/api\/v1\/sessions\/([a-zA-Z0-9_-]+)\/matrix\/demonstrations\/([a-zA-Z0-9_-]+)\/cancel$/.exec(path); if (match) { json(res, 200, await service.matrix.cancel(match[1], match[2], body)); return; }
       } else throw new SchoolError(405, 'method_not_allowed', 'Method not allowed.');
       throw new SchoolError(404, 'not_found', 'Endpoint not found.');
     } catch (error) {

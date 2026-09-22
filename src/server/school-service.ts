@@ -5,6 +5,8 @@ import { fields, identifier, learnerText, object, requireValue, SchoolError } fr
 import { FileSchoolRepository, fingerprint } from './repository.ts';
 import type { RequestReceipt, SchoolStore } from './repository.ts';
 import type { MentorProvider } from './providers.ts';
+import { MatrixLessonBridge } from './matrix-bridge.ts';
+import type { MatrixClientOptions } from '../integrations/matrix-client.ts';
 
 const now = () => new Date().toISOString();
 const MAX_CONCURRENT_PROVIDER_TURNS = 3;
@@ -40,10 +42,11 @@ function nextStage(session: SchoolSession, body: CreateTurnRequest): LessonStage
 export class SchoolService {
   repository: FileSchoolRepository;
   provider: MentorProvider;
+  readonly matrix: MatrixLessonBridge;
   private running = new Map<string, AbortController>();
   private pendingStorageFailures = new Map<string, string>();
   private closed = false;
-  constructor(repository: FileSchoolRepository, provider: MentorProvider) {
+  constructor(repository: FileSchoolRepository, provider: MentorProvider, options: { matrix?: MatrixClientOptions } = {}) {
     this.repository = repository; this.provider = provider;
     if (Object.values(repository.snapshot().turns).some((turn) => turn.status === 'running')) {
       repository.mutate((store) => {
@@ -54,6 +57,7 @@ export class SchoolService {
         }
       });
     }
+    this.matrix = new MatrixLessonBridge(repository, options.matrix);
   }
   catalog() { return { apiVersion: 1 as const, mentors: [structuredClone(GALILEO)], lessons: [structuredClone(OBSERVATION_LESSON)], provider: this.provider.status() }; }
   capabilities() {
@@ -61,7 +65,7 @@ export class SchoolService {
       { id: 'lesson.text.v1', version: 1, available: true, reason: 'Standalone mentor lesson and durable transcript.' },
       { id: 'experiment.scale.v1', version: 1, available: true, reason: 'Deterministic browser geometry illustration; not a Unity or physical-room observation.' },
       { id: 'mentor.voice.v1', version: 1, available: false, reason: 'Voice is a planned optional adapter. This candidate supports text.' },
-      { id: 'matrix.scene.v1', version: 1, available: false, reason: 'Matrix integration is optional and is not connected to this lesson.' },
+      { id: 'matrix.scene.v1', version: 1, available: true, reason: 'Optional local companion adapter. Each lesson needs explicit pairing and current readiness; the Matrix owner controls Apply.' },
     ] };
   }
   listSessions() { return { apiVersion: 1 as const, sessions: Object.values(this.repository.snapshot().sessions).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)) }; }
@@ -181,7 +185,7 @@ export class SchoolService {
   close() {
     if (this.closed) return; this.closed = true;
     for (const controller of this.running.values()) controller.abort();
-    try { if (this.running.size) this.repository.mutate((store) => { for (const id of this.running.keys()) {
+    try { this.matrix.close(); if (this.running.size) this.repository.mutate((store) => { for (const id of this.running.keys()) {
       const turn = getTurn(store, id); if (turn.status !== 'running') continue; turn.status = 'interrupted'; turn.completedAt = now(); turn.error = 'The School service stopped before this turn completed. Your input remains saved.';
       const session = getSession(store, turn.sessionId); delete session.activeTurnId; touch(session); session.events.push({ id: randomUUID(), type: 'turn_interrupted', createdAt: now(), stage: session.stage, details: turn.error });
     } }); } finally { this.repository.close(); }

@@ -3,8 +3,9 @@ import { closeSync, existsSync, fsyncSync, lstatSync, mkdirSync, openSync, readF
 import { join, resolve } from 'node:path';
 import type { MentorTurn, SchoolSession } from '../shared/contracts.ts';
 import { requireValue, SchoolError } from './errors.ts';
+import { validateMatrixLedger } from './matrix-ledger.ts';
 
-export interface RequestReceipt { fingerprint: string; kind: 'start' | 'turn' | 'cancel' | 'experiment'; resourceId: string; }
+export interface RequestReceipt { fingerprint: string; kind: 'start' | 'turn' | 'cancel' | 'experiment' | 'matrix_pair' | 'matrix_disconnect' | 'matrix_demonstration' | 'matrix_cancel'; resourceId: string; }
 export interface SchoolStore { formatVersion: 1; sessions: Record<string, SchoolSession>; turns: Record<string, MentorTurn>; receipts: Record<string, RequestReceipt>; }
 const MAX_BYTES = 16 * 1024 * 1024;
 const MAX_SESSIONS = 200;
@@ -34,6 +35,17 @@ function validStore(value: unknown): asserts value is SchoolStore {
     requireValue(raw.artifact.volume === derivedVolume && raw.artifact.volumeRatio === derivedVolume && stable(raw.artifact.baseline) === '[1,1,1]' && raw.artifact.units === 'units' && raw.artifact.type === 'scale' && savedDate(raw.artifact.observedAt), 500, 'invalid_store', 'Saved experiment calculations are inconsistent; existing data was preserved.');
     for (const message of raw.messages) requireValue(record(message) && savedId(message.id) && savedText(message.text) && savedDate(message.createdAt) && savedEnum(message.role, ['learner', 'mentor', 'system']), 500, 'invalid_store', 'Saved transcript is invalid; existing data was preserved.');
     for (const event of raw.events) requireValue(record(event) && savedId(event.id) && savedDate(event.createdAt) && savedText(event.details) && savedEnum(event.type, ['session_started', 'stage_changed', 'experiment_applied', 'turn_cancelled', 'turn_failed', 'turn_interrupted']), 500, 'invalid_store', 'Saved lesson event is invalid; existing data was preserved.');
+    if (raw.matrix !== undefined) {
+      validateMatrixLedger(raw.matrix);
+      const savedSources = Array.isArray(raw.lesson.sources) ? raw.lesson.sources : [];
+      for (const demo of raw.matrix.demonstrations) {
+        const identity = demo.exhibit.identity;
+        requireValue(identity.lesson.id === raw.lessonId && identity.lesson.version === raw.lessonVersion &&
+          identity.mentor.id === raw.mentorId && identity.mentor.promptVersion === raw.mentor.promptVersion &&
+          identity.sources.every(source => savedSources.some(saved => record(saved) && saved.id === source.id && saved.kind === source.kind)),
+        500, 'invalid_store', 'Saved Matrix exhibit references do not match the preserved lesson; existing data was preserved.');
+      }
+    }
     if (raw.activeTurnId !== undefined) {
       const pending = savedId(raw.activeTurnId) ? value.turns[raw.activeTurnId] : undefined;
       requireValue(record(pending) && pending.sessionId === id && pending.status === 'running', 500, 'invalid_store', 'Saved active turn is inconsistent; existing data was preserved.');
@@ -47,7 +59,7 @@ function validStore(value: unknown): asserts value is SchoolStore {
     if (raw.status === 'completed') requireValue(savedText(raw.output, 8000) && record(raw.receipt) && raw.receipt.completedTurn === true && raw.receipt.toolCallCount === 0 && savedEnum(raw.receipt.mode, ['demo', 'codex-cli']), 500, 'invalid_store', 'Saved provider receipt is invalid; existing data was preserved.');
   }
   for (const [id, raw] of Object.entries(value.receipts)) {
-    requireValue(savedId(id) && record(raw) && typeof raw.fingerprint === 'string' && /^[a-f0-9]{64}$/.test(raw.fingerprint) && typeof raw.resourceId === 'string' && savedEnum(raw.kind, ['start', 'turn', 'cancel', 'experiment']), 500, 'invalid_store', 'Saved receipt is invalid; existing data was preserved.');
+    requireValue(savedId(id) && record(raw) && typeof raw.fingerprint === 'string' && /^[a-f0-9]{64}$/.test(raw.fingerprint) && typeof raw.resourceId === 'string' && savedEnum(raw.kind, ['start', 'turn', 'cancel', 'experiment', 'matrix_pair', 'matrix_disconnect', 'matrix_demonstration', 'matrix_cancel']), 500, 'invalid_store', 'Saved receipt is invalid; existing data was preserved.');
     requireValue(Object.hasOwn(raw.kind === 'turn' || raw.kind === 'cancel' ? value.turns : value.sessions, raw.resourceId), 500, 'invalid_store', 'Saved receipt points to a missing record; existing data was preserved.');
   }
 }

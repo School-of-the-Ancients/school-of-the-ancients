@@ -171,3 +171,25 @@ test('advancing the opening lesson preserves a question that has not been submit
   assert.match(client.app.innerHTML, />A question I am still writing\.<\/textarea>/);
   assert.match(client.app.innerHTML, /data-value="question" aria-pressed="true"/);
 });
+
+test('a newer Matrix response can finish a mentor turn without a late turn poll leaving the composer stuck', async t => {
+  let resolvePoll;
+  const running = { id: 'turn-1', status: 'running', kind: 'question' };
+  const newer = session({ revision: 5, stage: 'example', stageContent: stageContent(OBSERVATION_LESSON, 'example') });
+  const client = await harness(t, (path, options) => {
+    if (path === '/api/v1/sessions' && options.method === 'POST') return { apiVersion: 1, session: session() };
+    if (path.endsWith('/sessions/session-1/turns')) return { apiVersion: 1, session: session({ revision: 2, activeTurnId: 'turn-1' }), turn: running };
+    if (path === '/api/v1/turns/turn-1') return new Promise(resolve => { resolvePoll = resolve; });
+    if (path.endsWith('/matrix')) return { apiVersion: 1, session: newer, bridge: { connected: false, binding: null, demonstrations: [] } };
+  });
+  await client.click('start'); client.input('How does it work?'); await client.send();
+  assert.match(client.app.innerHTML, /Stop response/);
+  await client.click('matrix-open');
+  assert.doesNotMatch(client.app.innerHTML, /Stop response/);
+  client.input('Keep this new question.');
+  resolvePoll({ apiVersion: 1, session: session({ revision: 4 }), turn: { ...running, status: 'completed' } }); await settle();
+  assert.doesNotMatch(client.app.innerHTML, /Stop response/);
+  assert.match(client.app.innerHTML, /Keep this new question\./);
+  assert.match(client.app.innerHTML, /Make a prediction/);
+  await client.click('home');
+});

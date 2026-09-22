@@ -2261,3 +2261,36 @@ a:hover {
     transition:none!important
   }
 }
+
+/* Optional companion controls remain separate from the browser experiment. */
+.matrix-panel { margin-top: 30px; padding: 26px; background: #f4f5ed; border: 1px solid var(--line); border-radius: 8px; }
+.matrix-panel-heading { display: flex; justify-content: space-between; align-items: center; gap: 18px; }
+.matrix-panel-heading h2 { font-size: 27px; margin-top: 5px; }
+.matrix-intro { max-width: 720px; margin: 15px 0; font-size: 12px; line-height: 1.8; color: var(--muted); }
+.matrix-panel-content > p { margin: 14px 0; font-size: 12px; line-height: 1.7; }
+.matrix-pair-fields { display: grid; grid-template-columns: 1.3fr 1fr auto; align-items: end; gap: 14px; margin: 18px 0 8px; }
+.matrix-pair-fields label { display: grid; gap: 8px; font-size: 11px; color: var(--muted); }
+.matrix-pair-fields input { width: 100%; min-width: 0; padding: 12px; border: 1px solid var(--line); border-radius: 4px; background: var(--panel); color: var(--ink); }
+.matrix-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 18px; margin-top: 12px; font-size: 11px; }
+.matrix-footnote { color: var(--muted); font-size: 10px !important; line-height: 1.8; }
+.matrix-warning { background: #fbefe1; color: #744b29; padding: 12px 15px; border-radius: 4px; font-size: 12px; line-height: 1.7; }
+.matrix-warning button { display: block; margin-top: 8px; }
+.matrix-readiness { padding: 0; list-style: none; margin: 18px 0; font-size: 11px; }
+.matrix-readiness li { padding: 10px 12px; border-left: 2px solid #b7c5a7; margin: 8px 0; background: #fffdf755; line-height: 1.7; }
+.matrix-readiness li.blocking { border-left-color: #bb8255; }
+.matrix-readiness strong { display: block; font-weight: 550; }
+.matrix-readiness span { display: block; color: var(--muted); }
+.matrix-history { margin-top: 24px; }
+.matrix-history h3 { font-family: var(--serif); font-size: 23px; margin-bottom: 12px; }
+.matrix-demonstration { padding: 18px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); margin: 12px 0; }
+.matrix-result-heading { display: flex; justify-content: space-between; gap: 12px; font-size: 12px; }
+.matrix-result-heading span { color: var(--muted); font-size: 10px; }
+.matrix-demonstration p { font-size: 11px; line-height: 1.8; margin-top: 10px; overflow-wrap: anywhere; }
+@media (max-width: 700px) {
+  .matrix-panel { padding: 19px; }
+  .matrix-panel-heading { align-items: flex-start; }
+  .matrix-panel-heading h2 { font-size: 23px; }
+  .matrix-pair-fields { grid-template-columns: 1fr; }
+  .matrix-pair-fields button { justify-self: start; }
+  .matrix-actions { gap: 14px; }
+}

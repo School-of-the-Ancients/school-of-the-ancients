@@ -18,6 +18,19 @@ The workbench is a mathematical illustration of a rectangular block. It calculat
 
 ## Where Matrix fits
 
-Matrix remains the separate AR/VR scene tool. The first connector building block can pair with an updated local Matrix service, request a proposed scene edit, and read acknowledged results after the Operator approves it. This School page has no Matrix pairing controls; its block controls do not alter a headset scene. See the [connector instructions](Development.md#separate-local-companion-sample) for the separate developer sample.
+Matrix remains the separate AR/VR scene tool. This optional connection needs a Matrix build with the [paired client API](https://github.com/School-of-the-Ancients/matrix-loading-operator/pull/34); an older running service will not acquire it just by opening this page.
+
+1. Start your updated Matrix service and runtime. In Matrix, select where the block should go. For AR, localize the room and confirm alignment first.
+2. Open Matrix's **Client connections** page (`/clients`). Use the Operator token there and create a temporary pairing code for School. Keep the Operator token in Matrix.
+3. In your School lesson, choose **Open Matrix connection**. Enter Matrix's local address and its temporary pairing code, then **Connect Matrix**. Read any preparation message; select a suitable surface in Matrix if requested.
+4. Choose **Request a block in Matrix**. School displays **Waiting for Operator review**. Nothing is placed yet.
+5. Follow **Review in Matrix**, inspect the exact proposed object and placement, then choose **Apply reviewed proposal** there. School cannot press Apply for you.
+6. Wait for **Runtime confirmed**, or choose **Check result**. Only a matched command acknowledgment and observed object count as confirmed placement. The resulting lesson note is available to the mentor on your next message.
+
+The browser's **Apply experiment** still changes only its mathematical illustration. It does not resize the Matrix block. This first connection demonstrates a prepared prop and reported placement; it does not yet run the whole scale experiment in AR.
+
+**Cancel proposal** is available before Apply. After approval, **Disconnect** does not undo work that may already be running. An **Outcome unconfirmed** message means School cannot prove what happened: inspect Matrix and check the original result before creating another block. Do not infer that the block appeared or disappeared.
+
+If School restarts, your successful demonstration history remains saved, but its temporary connection credentials are gone. Pending work becomes unconfirmed and is never automatically repeated. Inspect unresolved work in the original Operator before pairing again. You can always continue the browser lesson without Matrix. See [connection details and troubleshooting](Matrix-Bridge.md).
 
 Voice, live historical avatars, additional lessons, hosted student sessions and in-headset teaching are subsequent roadmap work. Their absence does not prevent this text lesson from running.
