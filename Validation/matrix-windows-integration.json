@@ -1,0 +1,121 @@
+{
+  "schemaVersion": 1,
+  "status": "passed",
+  "startedUtc": "2026-09-22T09:04:22.680441+00:00",
+  "completedUtc": "2026-09-22T09:04:43.818109+00:00",
+  "scope": "Actual local School HTTP server -> authenticated Matrix client API -> owner Apply endpoint -> real isolated headless Windows Unity player; cached restore after player restart",
+  "revisions": {
+    "school": {
+      "commit": "d3d923bf0216ebd8a14abc997036c96abe2e141f",
+      "testedBackendMatchesCommit": true,
+      "browserAcceptanceIncluded": false
+    },
+    "matrixClientApi": {
+      "pullRequest": "https://github.com/School-of-the-Ancients/matrix-loading-operator/pull/34",
+      "commit": "d9166f3d9f2c3fc05a2e9fe2a168d7d690d7e60d"
+    },
+    "matrixCachedRestore": {
+      "pullRequest": "https://github.com/School-of-the-Ancients/matrix-loading-operator/pull/35",
+      "commit": "1af3715bcffdcef8e1eb5299b1b4b9918d39b6e9"
+    },
+    "matrixLocalIntegration": {
+      "commit": "9112760a2f698d0b628b813a8076e841e70fbe24",
+      "published": false,
+      "description": "Local-only merge of the two exact Matrix inputs; no remote PR merge"
+    }
+  },
+  "runtime": {
+    "platform": "StandaloneWindows64",
+    "unityVersion": "6000.6.0f1",
+    "buildSourceCommit": "1af3715bcffdcef8e1eb5299b1b4b9918d39b6e9",
+    "isolatedProductAndCacheVerified": true,
+    "executable": {
+      "fileName": "MatrixOperator.exe",
+      "byteLength": 667136,
+      "sha256": "718444f6a718fa668da96eb0a58445b009673310e6129152a63dbf7a92b8de00"
+    },
+    "managedApplicationAssembly": {
+      "fileName": "Assembly-CSharp.dll",
+      "byteLength": 124928,
+      "sha256": "ffa4c19dd79d44d2c18b6d74c3668b6080b2d06b9269e9df6e0878c8a2ab52bf"
+    }
+  },
+  "schoolBackendSourceSha256": {
+    "normalization": "UTF-8 source bytes with CRLF normalized to LF; frozen runtime source compared with Git blobs at school commit",
+    "files": {
+      "package.json": "ce7fd9bbd0b56db3f73ec8bf037c5bb1c454a00452d5907c950932cae8cfcae3",
+      "src/exhibits/prepared-exhibits.ts": "16b753ab30f0aa877cbaa89f1e3557c612019de0c42e040a201de7e334968daa",
+      "src/integrations/matrix-client.ts": "77ee35ca494078cd0d218b4a7e67fd949d74f1e34eee135e955d235ff9a388a6",
+      "src/server/content.ts": "4fb831f152fa39e34f9f0eb0e2597ac4d1b74ab2f93d8748243b6df79882441e",
+      "src/server/errors.ts": "fedc9abfd2a840b83915198cedb346a06e8a0171d733b8416dfffe299ce5ffa6",
+      "src/server/http.ts": "c4e2bf5afe557d57dc4a3854702cd917fad29a03f73285a63485c6d1cdeeacb7",
+      "src/server/main.ts": "cbc036f19d86070d5abcaaa5a0fdb328b31e045e75c924311811834c925b4f6e",
+      "src/server/matrix-bridge.ts": "8975cffd38ded5a9fd40f992238fa6ad2f7aa2dd957183ef142dc1956d803ebe",
+      "src/server/matrix-ledger.ts": "70921844c12ffd527120ae4647620608e99c3e82509a802012f3a203604ea86a",
+      "src/server/providers.ts": "163203ebccb6d6032c2bdedfb8473c51955e9fdcdd793eea144e755f72bc9773",
+      "src/server/repository.ts": "78ef666721bb618d0267d842bc912f443084c40895d6662bf602d08bf20788a5",
+      "src/server/school-service.ts": "2406769cb81008ab3136976cb5304b694d7d2c8ac63e8e1b5efc39e058170ff8",
+      "src/shared/contracts.ts": "1b984bb38a217069405198b5dd1a66ce6430545478734f02289750138b842309"
+    }
+  },
+  "assertions": [
+    "Reused player has the isolated validation product identity",
+    "Persistent cache belongs to the earlier owned PR35 fixture",
+    "Previously downloaded device-cache bytes still match the exported pack",
+    "Actual Unity WhiteRoom exposes canonical block asset and real selection",
+    "School verifies actual Unity selection and canonical block readiness",
+    "School request produces an unapplied Matrix proposal",
+    "Real Unity stays unchanged across heartbeats before owner Apply",
+    "Owner inspection verifies one exact installed block command at the selected anchor",
+    "School receives a succeeded result from actual Unity acknowledgement and snapshot",
+    "School minimal evidence matches the real Unity object ID position and scale",
+    "Actual Matrix success does not advance the lesson or replace browser geometry evidence",
+    "Durable School record excludes owner secret pairing code and full Matrix room identity",
+    "Combined API service still acknowledges existing content installation path",
+    "Actual restarted player has a new lease and no registered downloaded pack",
+    "Combined API service restores exact saved School block and cached beacon with provider disabled and zero downloads",
+    "School preserves the historical confirmed outcome across runtime replacement",
+    "School withdraws readiness under the stale pairing after real runtime restart",
+    "New School request under a stale runtime pairing is rejected without changing the restored scene"
+  ],
+  "observations": {
+    "canonicalAssetId": "block",
+    "schoolResult": "succeeded",
+    "matchedCommandReceipts": 1,
+    "matchedRuntimeObjects": 1,
+    "lessonStage": "explain",
+    "lessonStageUnchanged": true,
+    "browserArtifactUnchanged": true,
+    "playerStarts": 2,
+    "restoredObjects": 2,
+    "cacheAlreadyPopulatedByPriorIsolatedRuntimeTest": true,
+    "bundleRequestsBeforeRestart": 0,
+    "bundleRequestsDuringRestore": 0,
+    "stalePairingRequestHttpStatus": 409
+  },
+  "additionalValidation": {
+    "combinedMatrixPythonTestsPassed": 436,
+    "matrixNodeSuitesPassed": [
+      "test_operator_panel.js",
+      "test_content_panel.js",
+      "test_client_panel.js"
+    ],
+    "earlierIsolatedPlayerBuildUnityChecksPassed": 384
+  },
+  "boundaries": {
+    "headsetTested": false,
+    "physicalRoomTested": false,
+    "visualRenderingInspected": false,
+    "humanClickedApply": false,
+    "ownerApply": "Harness inspected the exact proposal and called the authenticated owner endpoint; no automatic client Apply",
+    "mentorProvider": "Authored demo; no live model used",
+    "hostedDeploymentTested": false,
+    "browserUiTestedByThisRun": false
+  },
+  "cleanup": {
+    "ownedPlayerSchoolAndMatrixProcessesStopped": true,
+    "temporaryOwnerControlFileRemoved": true,
+    "existingOperatorServicesUntouched": true
+  },
+  "redaction": "Only sanitized assertions, counts, source revisions and hashes retained. No credentials, pairing codes, raw learner records, private paths or full room snapshots."
+}

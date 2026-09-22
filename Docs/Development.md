@@ -24,6 +24,8 @@ node examples/verify-live-mentor.ts
 
 This explicitly consumes a real model turn using a fictional geometry question. It creates isolated temporary records, prints the teaching answer and receipt, and removes its own temporary records afterward. It checks that a question leaves the stage unchanged. It does not create a student account or call Matrix.
 
+For a broader five-question smoke check, run `node examples/evaluate-mentor.ts --run-live --output Validation/NEW-REPORT.json`. It makes at most five model turns and refuses to overwrite a report. The [recorded evaluation](../Validation/Mentor-Evaluation.md) separates repeatable transport/state checks from qualitative teaching review.
+
 The adapter checks `codex login status` for a ChatGPT sign-in before inference. It invokes `codex exec --ignore-user-config --ephemeral --skip-git-repo-check --sandbox read-only --json`, requests a JSON schema, disables tools/features, and runs from a fresh temporary directory. It strips API-key environment variables from the child. Model configuration is explicit; the receipt records `requestedModel` and records `actualModel` only when the CLI supplies it. Do not infer actual model identity from the requested name alone. Reference: [official noninteractive Codex command documentation](https://learn.chatgpt.com/docs/developer-commands#codex-exec).
 
 Provider errors are sanitized. A timeout, cancelled turn, rejected tool event, invalid output or failed login must not advance the lesson. No application endpoint accepts arbitrary provider executables or model configuration from the browser.
