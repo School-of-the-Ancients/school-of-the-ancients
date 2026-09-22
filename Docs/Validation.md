@@ -1,6 +1,6 @@
-# Initial candidate validation
+# Candidate validation
 
-Recorded on 2026-09-22. This is a local School candidate and a separately tested Matrix connector building block, not a deployed School/Quest integration.
+Recorded on 2026-09-22. This is a local School candidate with an optional Matrix connection, not a deployed School/Quest integration.
 
 ## Automated evidence
 
@@ -38,10 +38,28 @@ The CLI did not report an actual model identifier in those receipts; this record
 
 Matrix's isolated owner page was also exercised in the in-app browser: load connections → inspect ready proposal → Apply → queued → succeeded with a synthetic runtime receipt → revoke client. An expired proposal correctly showed stale with no Apply control. That test service was stopped afterward. Existing Matrix services and Quest were untouched.
 
+## Optional prepared-exhibit bridge
+
+The next increment adds the versioned Galileo exhibit manifest, readiness checks, durable demonstration records, and a pairing/review/result panel inside the lesson. The original 45-test baseline above remains the evidence for PR #1; this increment adds its own fixture and integration coverage.
+
+At this checkpoint, **99 tests passed, zero failed or skipped**, with `MATRIX_CHECKOUT` set. Type checking and whitespace checks passed. The ordinary suite explicitly skips the three real cross-repository HTTP cases when that checkout is absent.
+
+The actual School HTTP server was exercised against the actual Matrix Python HTTP server and a synthetic runtime. The acceptance test verifies pairing, fresh readiness, a fixed block request, duplicate suppression, no dispatch before Operator Apply, no School Apply endpoint, matched command receipts and observed object evidence, and unchanged lesson stage/browser experiment. Reopening School's store preserves confirmed evidence, marks an unfinished proposal unconfirmed, and performs no automatic replay. The browser experiment remains usable while disconnected.
+
+Manual in-app browser checks exercised the separate School and Operator pages: begin lesson → open optional connection → enter temporary code → request block → inspect exact proposal in Operator → Apply → School displays **Runtime confirmed** and saves a lesson note. The lesson remained at Explore and its recorded browser dimensions remained `1 × 1 × 1`. This was a synthetic runtime, not a headset.
+
+A real Codex reply through that browser session correctly distinguished the historical placement report from current object presence, camera evidence and physical volume. It described the browser's `1 × 1 × 1` record as a mathematical model. The question did not advance the lesson. The requested model was `gpt-5.6-sol`; the receipt supplied no actual model identifier. Browser inspection also caught and fixed a transcript scroll being cancelled by a follow-up provider-status render.
+
+The [actual Windows runtime check](Matrix-Windows-Validation.md) subsequently passed using the exact committed School backend and a local combination of Matrix PRs #34/#35. It verified reviewed placement, original Unity receipts/snapshot, provider-disabled restart restore with zero downloads, and rejection of a stale pairing. The [five-case live mentor smoke evaluation](../Validation/Mentor-Evaluation.md) separately records five successful text-only turns, correct geometry in those examples, preserved uncertainty, and one wording/relevance improvement. Neither substitutes for headset or educator acceptance.
+
+Review and regression work includes older connection links pointing to their original Operator, out-of-order School responses preserving the newer lesson state, a mentor-turn/Matrix-result race that could leave the composer waiting, contradictory runtime outcomes, and bounded AR selection/placement checks. Successful evidence is retained as the original historical result rather than rewritten by later scene reads.
+
+Real-player preparation exposed the built-in asset's actual ID, `block` (Terracotta block), rather than the earlier synthetic `cube` fixture. The package now requires that exact identity and uses the parser's exact-ID tier. A persisted, allowlisted historical evidence summary also remains in mentor context after the original placement note falls outside the recent-message window; it does not claim current presence or current connectivity.
+
 ## Remaining acceptance
 
 - User comparison of this concrete candidate with beta's preferred experience, before expanding a remake (roadmap #2B).
-- School lesson controls connected to Matrix through the optional adapter; hosted transport, durable connector events/checkpoints and headset acceptance.
+- Real Quest placement and teacher/student walkthrough of the optional bridge; hosted transport and durable Matrix events/checkpoints.
 - Optional speech/captions, additional visual adapters, sourced historical teaching evaluation and more prepared lessons.
 - Immutable checkpoints/import, retention and multi-user/hosted deployment design. Current export is a record, not an import/restore implementation.
 - A full beta/v2 runtime comparison remains pending; the reuse audit's repository inspection must not be described as side-by-side deployed acceptance.

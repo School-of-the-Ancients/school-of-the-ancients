@@ -14,6 +14,9 @@ Decision status: provisional implementation for roadmap #2A and #13. User compar
 | `src/server/http.ts` | Local HTTP delivery, request/origin limits and static content | Hosted authentication |
 | `public/` | Browser experience and deterministic visual preview | Credentials, model calls or authoritative progress |
 | `src/integrations/matrix-client.ts` | Optional local Matrix transport, request/result validation | Apply authority or student records |
+| `src/exhibits/prepared-exhibits.ts` | Versioned exhibit data and pure dependency/readiness checks | Content downloads, room mutation or inference |
+| `src/server/matrix-bridge.ts` | Explicit lesson pairing, durable request intent, minimal observed evidence | Operator credentials, Apply authority or lesson advancement |
+| `src/server/matrix-ledger.ts` | Strict saved demonstration validation and bounded connection history | Runtime state or token storage |
 
 The lesson engine owns the next step. A model receives the target stage and can explain it, but cannot advance the stored session, execute tools, grant mastery, or invent an observation. A question leaves the stage unchanged. A successful answer advances according to the authored lesson. The initial model response is text, not arbitrary HTML or downloadable executable behavior.
 
@@ -33,7 +36,9 @@ The connector uses Matrix's independently implemented `/api/v1/` local companion
 
 The current Matrix implementation uses bounded **memory-only** session/request ledgers. Service restart loses them; an uncertain request must not be replayed after re-pairing. This client never automatically retries a mutation. Hosted browser transport, durable replay, room captures and content installation are not exposed by this slice. A real cross-process test uses synthetic data and does not establish headset acceptance.
 
-No learner transcript is required by Matrix. A future School connector should send only a bounded scene request and opaque correlation ID, then map observed results back into the School session. School records, curriculum and assessment stay here.
+No learner transcript is sent to Matrix. The optional lesson bridge sends one fixed prepared block request with an opaque correlation ID. It reserves the intent in School before network submission, keeps the scoped Matrix credential only in memory, and saves a minimal original acknowledgment/object summary. A separate lesson note supplies that result to future mentor turns. Neither that note nor runtime success advances the lesson, replaces its browser experiment, or grants mastery.
+
+On School restart, successful demonstration evidence survives while unfinished requests become unconfirmed. Re-pairing cannot adopt or replay an earlier request. School records, curriculum and assessment stay here. See [the bridge contract](Matrix-Bridge.md) and [prepared-exhibit module](Prepared-Exhibits.md).
 
 ## Compatibility and rollback
 

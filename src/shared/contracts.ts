@@ -30,6 +30,8 @@ export interface SchoolSession {
   status: 'active' | 'completed'; messages: LessonMessage[]; events: LessonEvent[];
   artifact: ScaleArtifact; activeTurnId?: string; createdAt: string; updatedAt: string; savedAt: string;
   completionLabel: string;
+  /** Optional local companion ledger; never contains Matrix credentials or raw room captures. */
+  matrix?: MatrixLessonLedger;
 }
 export interface ProviderStatus {
   mode: ProviderMode; label: string; configured: boolean; available: boolean; checked: boolean;
@@ -49,3 +51,49 @@ export interface StartSessionRequest { requestId: string; mentorId: string; less
 export interface CreateTurnRequest { requestId: string; expectedRevision: number; kind: TurnKind; text?: string; }
 export interface ExperimentRequest { requestId: string; expectedRevision: number; dimensions: [number, number, number]; }
 export interface ErrorResponse { apiVersion: 1; error: string; code: string; }
+
+export interface MatrixBindingRecord {
+  id: string; origin: string; status: 'pairing' | 'paired' | 'disconnected' | 'unconfirmed' | 'failed';
+  createdAt: string; updatedAt: string; matrixSessionId?: string; runtimeSessionId?: string; error?: string;
+}
+export interface MatrixObjectEvidence {
+  objectId: string; assetId: string; anchorId: string;
+  position: { x: number; y: number; z: number };
+  scale: { x: number; y: number; z: number };
+}
+export type MatrixDemonstrationStatus = 'submitting' | 'planning' | 'ready' | 'queued' | 'running' | 'succeeded' |
+  'failed' | 'partial' | 'cancelled' | 'stale' | 'unconfirmed' | 'needs_clarification' | 'review_only' | 'error';
+export interface MatrixDemonstration {
+  id: string; bindingId: string; matrixSessionId: string; runtimeSessionId: string; correlationId: string;
+  exhibit: { id: string; version: string; digest: string; identity: import('../exhibits/prepared-exhibits.ts').ExhibitIdentity };
+  placement: {
+    anchorId: string; position: { x: number; y: number; z: number };
+    mode: 'direct' | 'surface'; spawnScale: number;
+    bounds?: { center: { x: number; y: number; z: number }; size: { x: number; y: number; z: number } };
+  };
+  requestText: string; expectedMatrixRevision: number; status: MatrixDemonstrationStatus;
+  createdAt: string; updatedAt: string; sequence: number; requiresApply: boolean;
+  /** A bounded explanatory summary only. Apply authority belongs to the Matrix operator. */
+  proposalSummary: string | null; commandIds: string[];
+  receipts: Array<{ requestId: string; ok: boolean; error: string; objectId: string }>;
+  observed: { revision: number; objects: MatrixObjectEvidence[]; source: 'matrix-runtime' } | null;
+  error: string | null; lastCheckedAt?: string;
+  /** Explicit request failure/uncertainty is separate from the last observed Matrix outcome. */
+  checkError?: string;
+}
+export interface MatrixLessonLedger {
+  bindings: MatrixBindingRecord[]; activeBindingId?: string; demonstrations: MatrixDemonstration[];
+}
+export interface MatrixBridgeResponse extends SessionResponse {
+  bridge: {
+    binding: MatrixBindingRecord | null; connected: boolean;
+    readiness: import('../exhibits/prepared-exhibits.ts').ExhibitPreflight | null;
+    checkedAt: string | null; reason: string; operatorUrl: string | null;
+    demonstrations: MatrixDemonstration[];
+  };
+  demonstration?: MatrixDemonstration;
+}
+export interface MatrixPairRequest { requestId: string; expectedRevision: number; url: string; pairingCode: string; }
+export interface MatrixDisconnectRequest { requestId: string; expectedRevision: number; }
+export interface MatrixDemonstrationRequest { requestId: string; expectedRevision: number; bindingId: string; expectedMatrixRevision: number; }
+export interface MatrixCancelRequest { requestId: string; }

@@ -43,7 +43,7 @@ Live mode sends the selected lesson, recent conversation and recorded browser ex
 | Conversation | Scripted demonstration or real Codex text responses; questions keep the current step |
 | Interactive visual | Deterministic width × height × depth illustration; recorded dimensions and volume |
 | Records | Atomic local saves, resume, export, cancellation, interrupted-turn recovery and request deduplication |
-| Matrix integration | Separate server-side client and cross-process contract test; not connected to lesson controls yet |
+| Matrix integration | Optional pairing panel, prepared block request, Operator review, and saved runtime evidence |
 | Voice and headset | Planned optional adapters; unavailable in this candidate |
 
 Browser dimensions are simulated units. The illustration is not a Unity scene, measured room, or physical observation. No hosted deployment, multi-user authentication, durable Matrix event replay, or headset acceptance is claimed.
@@ -55,16 +55,19 @@ flowchart LR
   UI[School browser] --> School[School lesson service]
   School --> Model[Replaceable text provider]
   School --> Records[School learning records]
-  Client[Optional local companion] --> API[Matrix client API v1]
+  School --> Client[Optional local companion]
+  Client --> API[Matrix client API v1]
   API --> Review[Operator review and Apply]
   Review --> Runtime[Existing Matrix runtime]
   Runtime --> Evidence[Runtime receipts and snapshots]
   Evidence --> Client
 ```
 
-School owns mentors, teaching and learning records. Matrix owns scene/content execution and its observations. The local companion is a separately tested integration building block; wiring it into the School experience is a later acceptance step. Neither product imports the other's internal application model.
+School owns mentors, teaching and learning records. Matrix owns scene/content execution and its observations. Open **Matrix connection** inside a lesson to pair with an updated local Matrix service. Requesting a block creates a proposal; approve it in Matrix's Operator before it runs. School records the reported placement without advancing the lesson or treating it as a physical measurement. Neither product imports the other's internal application model.
 
 - [User walkthrough](Docs/User-Guide.md)
+- [Optional Matrix connection](Docs/Matrix-Bridge.md)
+- [Prepared exhibit packages and readiness](Docs/Prepared-Exhibits.md)
 - [Development, configuration and tests](Docs/Development.md)
 - [Architecture and module boundaries](Docs/Architecture.md)
 - [Beta/v2 reuse audit](Docs/Reuse-Audit.md)

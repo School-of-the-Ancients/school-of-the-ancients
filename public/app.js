@@ -1,10 +1,12 @@
 import { createApiClient, escapeHtml as h, STAGES, STAGE_LABELS, ANSWER_LABELS, stageProgress, providerPresentation, normalDimensions, dimensionsEqual, volumeOf, numberLabel, makeRequestId, formatSavedAt, safeSourceUrl } from './client-core.js';
 import { scaleDiagram } from './scale-view.js';
+import { createMatrixPanel } from './matrix-panel.js';
 
 const api = createApiClient();
 const app = document.querySelector('#app');
 const state = { catalog: null, capabilities: [], sessions: [], session: null, turn: null, loading: true, busy: false, busyLabel: '', error: '', retry: null, notice: '', draft: '', intent: 'question', dimensions: [1, 1, 1], selectedMentor: '', selectedLesson: '', pollGeneration: 0 };
 let pollTimer;
+const matrixPanel = createMatrixPanel({ api, getSession: () => state.session, onSession: session => adoptSession(session), onChange: () => render() });
 
 const icons = {
   arrow: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"/></svg>',
@@ -83,6 +85,7 @@ function lesson() {
   return `<main id="main" class="lesson-shell"><div class="lesson-toolbar"><button class="text-button" data-action="home" ${busy ? 'disabled' : ''}>${icons.back}The academy</button><div class="save-tools"><span class="save-status">${icons.check}Autosaved on this PC<span>${h(formatSavedAt(session.savedAt))}</span></span><button class="text-button" data-action="export" ${state.busy ? 'disabled' : ''}>${icons.download}Export</button></div></div><div class="lesson-title-row"><div><p class="eyebrow">YOUR EXPLORATION</p><h1>${h(session.lesson.title)}</h1></div><span class="lesson-progress-label">${stageProgress(session.stage)}% of lesson steps<span>Not a mastery score</span></span></div>${stageRail(session)}
     <section class="current-step" aria-label="Current lesson step"><span class="step-glyph">${session.status === 'completed' ? '✓' : String(STAGES.indexOf(session.stage) + 1).padStart(2, '0')}</span><div><p class="eyebrow">${h(STAGE_LABELS[session.stage] || 'LESSON')}</p><h2>${h(session.stageContent.title)}</h2><p>${h(session.stageContent.prompt)}</p></div>${session.stage === 'explain' ? `<button class="button button-small button-secondary" data-action="advance" ${busy ? 'disabled' : ''}>Make a prediction${icons.arrow}</button>` : ''}</section>
     <div class="lesson-workspace">${conversation(session)}${artifactPanel(session)}</div>
+    ${matrixPanel.render(session, { lessonBusy: busy })}
     <details class="lesson-sources"><summary>About this lesson & its sources<span>+</span></summary><div><p>${h(session.lesson.objective)}</p><p>${h(session.mentor.disclosure)}</p><ul>${session.lesson.sources.map(source => `<li><strong>${safeSourceUrl(source.url) ? `<a href="${h(safeSourceUrl(source.url))}" target="_blank" rel="noopener noreferrer">${h(source.title)}</a>` : h(source.title)}</strong> — ${h(source.description)}</li>`).join('')}</ul><p>Portrait: the School of the Ancients beta, retained with its repository provenance. No historical quotation is implied by generated dialogue.</p></div></details>
   </main>`;
 }
@@ -97,7 +100,9 @@ function render({ scrollTranscript = false } = {}) {
   else app.innerHTML = shell(state.session ? lesson() : academy());
   const transcript = document.querySelector('#transcript');
   if (transcript) {
-    if (scrollTranscript) transcript.scrollTo({ top: 100000, behavior: 'smooth' });
+    // This node is replaced on provider/Matrix status renders. Finish the scroll
+    // synchronously so a second render cannot cancel it before the reply is visible.
+    if (scrollTranscript) transcript.scrollTo({ top: 100000, behavior: 'auto' });
     else transcript.scrollTop = previousScroll;
   }
   const input = document.querySelector('#message-input');
@@ -105,18 +110,24 @@ function render({ scrollTranscript = false } = {}) {
 }
 
 function adoptSession(session, { reset = false } = {}) {
+  if (state.session?.id === session.id && session.revision < state.session.revision) return false;
   const changedArtifact = !state.session || !dimensionsEqual(state.session.artifact.dimensions, session.artifact.dimensions);
   const changedSession = state.session?.id !== session.id;
   const changedStage = state.session?.stage !== session.stage;
   state.session = session;
+  // Matrix results can arrive while a mentor turn is being polled. The latest
+  // School record remains the authority for whether that turn is still active.
+  if (state.turn?.status === 'running' && session.activeTurnId !== state.turn.id) state.turn = session.activeTurnId ? { id: session.activeTurnId, status: 'running' } : null;
   if (reset || changedSession || changedArtifact) state.dimensions = normalDimensions(session.artifact.dimensions);
   state.sessions = [session, ...state.sessions.filter(item => item.id !== session.id)].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
   if (changedSession) state.draft = '';
   if (changedSession || (changedStage && !state.draft.trim())) state.intent = session.stage === 'explain' ? 'question' : 'answer';
+  return true;
 }
 
 function adoptTurn(result) {
-  adoptSession(result.session); state.turn = result.turn;
+  if (!adoptSession(result.session)) return;
+  state.turn = result.turn;
   if (result.turn.status === 'failed' || result.turn.status === 'interrupted') {
     state.error = result.turn.error || 'The mentor response did not complete. Your message is saved; the lesson step has not advanced.';
     state.retry = null;
@@ -166,7 +177,7 @@ function monitorTurn(turnId) {
           state.retry = () => monitorTurn(turnId);
         } else pollTimer = setTimeout(poll, 700);
       } else {
-        if (previousStage !== result.session.stage && !state.draft.trim()) state.intent = result.session.stage === 'explain' ? 'question' : 'answer';
+        if (previousStage !== state.session.stage && !state.draft.trim()) state.intent = state.session.stage === 'explain' ? 'question' : 'answer';
         api('/catalog').then(catalog => { state.catalog = catalog; render(); }).catch(() => {});
       }
       render({ scrollTranscript: true });
@@ -223,6 +234,7 @@ function updateDiagram() {
 }
 
 app.addEventListener('input', event => {
+  if (event.target.dataset.matrixField) { matrixPanel.input(event.target.dataset.matrixField, event.target.value); return; }
   if (event.target.id === 'message-input') {
     state.draft = event.target.value;
     const send = document.querySelector('#send-message'); if (send) send.disabled = !state.draft.trim() || state.busy;
@@ -245,8 +257,9 @@ app.addEventListener('click', async event => {
   if (action === 'dismiss-error') { state.error = ''; state.retry = null; render(); return; }
   if (action === 'retry') { const retry = state.retry; state.error = ''; state.retry = null; await retry?.(); return; }
   if (action === 'bootstrap') { await bootstrap(); return; }
-  if (action === 'home') { if (state.busy || state.turn?.status === 'running') return; stopPolling(); state.session = null; state.turn = null; state.error = ''; state.notice = ''; render(); window.scrollTo({ top: 0 }); return; }
+  if (action === 'home') { if (state.busy || state.turn?.status === 'running') return; stopPolling(); matrixPanel.hide(); state.session = null; state.turn = null; state.error = ''; state.notice = ''; render(); window.scrollTo({ top: 0 }); return; }
   if (state.busy) return;
+  if (action.startsWith('matrix-')) { await matrixPanel.action(action.slice(7), button.dataset); return; }
   if (action === 'mentor') { state.selectedMentor = button.dataset.id; state.selectedLesson = state.catalog.lessons.find(lesson => lesson.mentorId === state.selectedMentor)?.id || ''; render(); }
   if (action === 'lesson') { state.selectedLesson = button.dataset.id; render(); }
   if (action === 'start') {

@@ -24,9 +24,13 @@ node examples/verify-live-mentor.ts
 
 This explicitly consumes a real model turn using a fictional geometry question. It creates isolated temporary records, prints the teaching answer and receipt, and removes its own temporary records afterward. It checks that a question leaves the stage unchanged. It does not create a student account or call Matrix.
 
+For a broader five-question smoke check, run `node examples/evaluate-mentor.ts --run-live --output Validation/NEW-REPORT.json`. It makes at most five model turns and refuses to overwrite a report. The [recorded evaluation](../Validation/Mentor-Evaluation.md) separates repeatable transport/state checks from qualitative teaching review.
+
 The adapter checks `codex login status` for a ChatGPT sign-in before inference. It invokes `codex exec --ignore-user-config --ephemeral --skip-git-repo-check --sandbox read-only --json`, requests a JSON schema, disables tools/features, and runs from a fresh temporary directory. It strips API-key environment variables from the child. Model configuration is explicit; the receipt records `requestedModel` and records `actualModel` only when the CLI supplies it. Do not infer actual model identity from the requested name alone. Reference: [official noninteractive Codex command documentation](https://learn.chatgpt.com/docs/developer-commands#codex-exec).
 
 Provider errors are sanitized. A timeout, cancelled turn, rejected tool event, invalid output or failed login must not advance the lesson. No application endpoint accepts arbitrary provider executables or model configuration from the browser.
+
+Mentor context contains the recent transcript and current browser experiment. For lessons with Matrix demonstrations it also includes up to four recent request-state summaries and the last confirmed historical placement, so later questions retain evidence after transcript truncation or School record reload. This allowlist includes status and School record timestamps, but excludes connection addresses, pairing data, internal IDs, transforms, raw room data, proposals and error text. It does not query Matrix or establish the current connection, current object presence, camera evidence, physical measurements or mastery.
 
 ## Automated checks
 
@@ -44,9 +48,12 @@ This optional check requires an updated Matrix checkout containing `ControlServi
 ```powershell
 $env:MATRIX_CHECKOUT='<absolute Matrix checkout path>'
 node --test tests/integration/matrix-http.test.ts
+node --test tests/integration/school-matrix-http.test.ts
 ```
 
 `PYTHON_EXE` optionally selects Python. The test starts a **new ephemeral loopback** Matrix server on a dynamically assigned port with a random test credential and synthetic room. It pairs the School-side client, proposes an edit, confirms no pre-Apply command, performs owner review/Apply, delivers synthetic runtime receipts and verifies results, deduplication, cancellation and revocation. It shuts down its own server and never contacts an existing Operator or Quest.
+
+The second test goes through School's actual HTTP routes before reaching Matrix, then reopens School's durable records to verify confirmed evidence survives and an unfinished proposal is not replayed. Without `MATRIX_CHECKOUT`, both cross-repository tests skip explicitly; ordinary tests still exercise deterministic transport, preflight and bridge fixtures. The ordinary suite never calls a live model or headset.
 
 ### Separate local companion sample
 
