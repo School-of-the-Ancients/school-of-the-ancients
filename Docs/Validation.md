@@ -68,6 +68,14 @@ The actual Codex in-app browser separately detected **Microsoft David, English (
 
 This verifies browser voice enumeration and the start/stop/replay lifecycle. No human listening assessment was performed: sound audibility, intelligibility, pronunciation and comfort remain pending, as do screen-reader compatibility, broader browser/device coverage, hosted behavior and Quest acceptance. See [mentor read-aloud](Mentor-Speech.md) for the controls and browser API references.
 
+## Mentor suggestion and reviewed Matrix scene
+
+The current School suite passed **189 Node tests, zero failed or skipped**, with `MATRIX_CHECKOUT` set to Matrix commit `d7fdb511864fd04e228284ead2fe3af08fe97a60`; TypeScript checking passed. These tests cover a saved typed Galileo scene suggestion, explicit sending of its authoritative turn, strict Matrix AI discovery, proposal review boundaries, duplicate suppression, cancellation, stale revisions, disconnect/restart handling, privacy, and receipt reconciliation. Matrix separately passed 491 Python tests and three Node panel suites; its new Codex HTTP inference is mocked in those tests.
+
+The [opt-in Windows run](Mentor-Scene-Windows-Validation.md) then passed **24 checks** with real Codex turns and the isolated Unity 6000.6.0f1 player. Galileo saved a two-block suggestion; Matrix's actual Codex planner returned a bounded two-spawn proposal; the authenticated harness applied it only after its exact command allowlist passed; the actual Unity runtime acknowledged both commands and returned matching transforms. Galileo's follow-up described the two successful acknowledgments as historical execution evidence and did not claim current presence, physical measurement, or mastery. The lesson stage and browser artifact remained unchanged. [Sanitized evidence](../Validation/mentor-scene-windows.json) records the player and source hashes, model receipts, cleanup, and limits. Separately, the browser displayed the authored suggestion card with its title, learning goal, full prompt, and explicit Build action while disconnected; no scene request was sent on render or mentor reply.
+
+This run did not use a Quest, inspect rendering, or include a human Operator click. A runtime acknowledgment verifies command execution, not that the lesson's visual comparison is clear to a student.
+
 ## Remaining acceptance
 
 - User comparison of this concrete candidate with beta's preferred experience, before expanding a remake (roadmap #2B).
@@ -76,4 +84,4 @@ This verifies browser voice enumeration and the start/stop/replay lifecycle. No 
 - Immutable checkpoints/import, retention and multi-user/hosted deployment design. Current export is a record, not an import/restore implementation.
 - A full beta/v2 runtime comparison remains pending; the reuse audit's repository inspection must not be described as side-by-side deployed acceptance.
 
-No repositories or learner records were migrated, and no PR was merged by this implementation work.
+No beta/v2 repositories or learner records were migrated by this implementation work.

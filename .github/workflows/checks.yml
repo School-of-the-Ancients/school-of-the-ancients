@@ -27,7 +27,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: School-of-the-Ancients/matrix-loading-operator
-          ref: ddb2a0df065321104244f31bbb0af367e3524dec
+          ref: d7fdb511864fd04e228284ead2fe3af08fe97a60
           path: matrix
           persist-credentials: false
       - uses: actions/setup-node@v4

@@ -2311,3 +2311,12 @@ a:hover {
   line-height: 1.5;
 }
 .mentor-speech small { display: block; margin-top: 4px; }
+
+.mentor-demonstration { margin: 18px 0; padding: 20px; border: 1px solid var(--line); border-radius: 6px; background: #f4f5ed; }
+.mentor-demonstration h3 { font-family: var(--serif); font-size: 24px; line-height: 1.25; margin: 8px 0; }
+.mentor-demonstration > p, .mentor-scene-request p { font-size: 12px; line-height: 1.8; overflow-wrap: anywhere; }
+.mentor-demonstration > .button { margin-top: 14px; }
+.mentor-scene-request { margin: 14px 0; padding: 12px 14px; background: var(--panel); border-left: 2px solid #b7c5a7; }
+.mentor-scene-request strong { font-size: 11px; }
+.mentor-scene-request p { margin-top: 5px; white-space: pre-wrap; }
+.mentor-demonstration .matrix-demonstration { margin-bottom: 0; }

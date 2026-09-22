@@ -44,3 +44,7 @@ Voice input, live historical avatars, additional lessons, hosted student session
 ## Scale the block in Matrix
 
 After School confirms a block placement in Matrix’s desktop white room, open **Try scale in Matrix**. Choose a preset, review and Apply in the Matrix Operator, then inspect the confirmed ratio. **Reset Matrix block** is a separate reviewed proposal. This changes the Matrix block; the browser experiment and lesson step stay separate. See the [complete walkthrough](Matrix-Scale-Lesson.md). Quest AR scaling is not available in this version.
+
+## Ask Galileo for a scene
+
+Ask Galileo to suggest a Matrix demonstration. If the reply includes a suggestion card, read its title, learning goal and scene request, then choose **Build this demonstration**. Connect Matrix first if needed; pairing does not send the request automatically. Matrix prepares a proposal for your separate Operator review and Apply. Discuss the recorded outcome afterward. See the [mentor demonstration walkthrough](Mentor-Demonstrations.md).

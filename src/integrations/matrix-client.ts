@@ -185,7 +185,7 @@ class Transport {
       throw new MatrixClientError('invalid_options', 'Transport limits are outside the supported range.');
     }
   }
-  async send(path: string, options: { method?: 'GET' | 'POST'; body?: unknown; token?: string; requestId?: string; signal?: AbortSignal } = {}): Promise<Record<string, unknown>> {
+  async send(path: string, options: { method?: 'GET' | 'POST'; body?: unknown; token?: string; requestId?: string; signal?: AbortSignal; codexSceneProposal?: boolean } = {}): Promise<Record<string, unknown>> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), this.#timeout);
     const abort = () => controller.abort();
@@ -234,7 +234,10 @@ class Transport {
       if (!response.ok) {
         // Do not reflect server text, credentials, HTML, or room data into application errors.
         const code = typeof body.code === 'string' && /^[a-z_]{1,64}$/.test(body.code) ? body.code : 'http_error';
-        throw new MatrixClientError(code, `Matrix rejected the request (HTTP ${response.status}).`, { status: response.status, requestId: options.requestId, outcomeUnknown: mutation && response.status >= 500 });
+        // This explicit v1 gate rejects a new Codex request before any Matrix ledger or worker exists.
+        // No other 5xx response, mutation route or planner mode receives this exception.
+        const plannerRejected = options.codexSceneProposal === true && mutation && path === '/api/v1/requests' && body.protocolVersion === '1' && response.status === 503 && code === 'planner_unavailable';
+        throw new MatrixClientError(code, `Matrix rejected the request (HTTP ${response.status}).`, { status: response.status, requestId: options.requestId, outcomeUnknown: mutation && response.status >= 500 && !plannerRejected });
       }
       if (body.protocolVersion !== '1') throw failed('protocol_mismatch', 'Matrix returned an unsupported protocol version.');
       return body;
@@ -252,6 +255,8 @@ export class MatrixClient {
   #lastSequence = new Map<string, number>();
   #scaleCorrelations = new Map<string, string | null>();
   #lastScaleOutcome = new Map<string, MatrixOutcome>();
+  #sceneCorrelations = new Map<string, string | null>();
+  #lastSceneOutcome = new Map<string, MatrixOutcome>();
   private constructor(transport: Transport, pairing: MatrixPairing) {
     this.#transport = transport; this.#token = pairing.clientToken;
     this.#sessionId = pairing.sessionId; this.#runtimeSessionId = pairing.runtimeSessionId;
@@ -279,16 +284,21 @@ export class MatrixClient {
     requireValue(Number.isSafeInteger(result.revision) && (result.revision as number) >= 0 && object(result.snapshot), 'Matrix scene is missing its authoritative revision or snapshot.');
     return result as unknown as MatrixScene;
   }
-  async propose(text: string, options: { requestId: string; revision: number; correlationId?: string; signal?: AbortSignal }): Promise<MatrixOutcome> {
+  async propose(text: string, options: { requestId: string; revision: number; correlationId?: string; signal?: AbortSignal; mode?: 'offline-rules' | 'codex-cli' }): Promise<MatrixOutcome> {
     identifier(options.requestId, 'requestId');
     if (options.correlationId !== undefined) identifier(options.correlationId, 'correlationId');
-    if (typeof text !== 'string' || !text.trim() || text.length > 4000 || !Number.isSafeInteger(options.revision) || options.revision < 0) {
+    if (typeof text !== 'string' || !text.trim() || text.length > 4000 || !Number.isSafeInteger(options.revision) || options.revision < 0 || options.mode !== undefined && !['offline-rules','codex-cli'].includes(options.mode)) {
       throw new MatrixClientError('invalid_request', 'Use a bounded scene request and current nonnegative revision.');
     }
+    if (options.mode === 'codex-cli') {
+      const correlation = options.correlationId ?? null;
+      if (this.#sceneCorrelations.has(options.requestId) && this.#sceneCorrelations.get(options.requestId) !== correlation) throw new MatrixClientError('invalid_request', 'A scene request ID cannot change its correlation.');
+      this.#sceneCorrelations.set(options.requestId, correlation);
+    }
     const result = await this.#transport.send('/api/v1/requests', {
-      method: 'POST', token: this.#token, requestId: options.requestId, signal: options.signal,
+      method: 'POST', token: this.#token, requestId: options.requestId, signal: options.signal, codexSceneProposal: options.mode === 'codex-cli',
       body: { requestId: options.requestId, ...(options.correlationId ? { correlationId: options.correlationId } : {}),
-        expected: { runtimeSessionId: this.#runtimeSessionId, revision: options.revision }, intent: { text, mode: 'offline-rules' } },
+        expected: { runtimeSessionId: this.#runtimeSessionId, revision: options.revision }, intent: { text, mode: options.mode ?? 'offline-rules' } },
     });
     return this.#mutationOutcome(result, options.requestId);
   }
@@ -337,6 +347,7 @@ export class MatrixClient {
   }
   #outcome(result: Record<string, unknown>, requestId: string): MatrixOutcome {
     this.#bound(result);
+    if (this.#sceneCorrelations.has(requestId)) requireValue((result.correlationId ?? null) === this.#sceneCorrelations.get(requestId), 'Matrix changed the original scene request correlation.');
     if (this.#scaleCorrelations.has(requestId)) requireValue((result.correlationId ?? null) === this.#scaleCorrelations.get(requestId), 'Matrix changed the original scale request correlation.');
     requireValue(result.requestId === requestId && Number.isSafeInteger(result.sequence) && (result.sequence as number) >= 0 && STATUSES.has(result.status as MatrixRequestStatus), 'Matrix outcome identity/status is invalid.');
     requireValue(typeof result.requiresApply === 'boolean' && Array.isArray(result.commandIds) && result.commandIds.every(id => typeof id === 'string') && Array.isArray(result.receipts), 'Matrix outcome is missing command/receipt information.');
@@ -356,6 +367,11 @@ export class MatrixClient {
     }
     const last = this.#lastSequence.get(requestId) ?? -1;
     if ((result.sequence as number) < last) throw new MatrixClientError('out_of_order', 'An older Matrix outcome cannot replace a newer observation.', { requestId });
+    if (this.#sceneCorrelations.has(requestId)) {
+      const previous = this.#lastSceneOutcome.get(requestId);
+      requireValue(!previous || previous.sequence !== result.sequence || isDeepStrictEqual(previous, result), 'Matrix changed a scene outcome without advancing its sequence.');
+      this.#lastSceneOutcome.set(requestId, structuredClone(result) as unknown as MatrixOutcome);
+    }
     if (Object.hasOwn(result, 'experiment') || this.#scaleCorrelations.has(requestId)) {
       const previous = this.#lastScaleOutcome.get(requestId);
       requireValue(!previous || previous.sequence !== result.sequence || isDeepStrictEqual(previous, result), 'Matrix changed a scale outcome without advancing its sequence.');

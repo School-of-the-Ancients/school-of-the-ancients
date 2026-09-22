@@ -45,7 +45,7 @@ Live mode sends the selected lesson, recent conversation and recorded browser ex
 | Conversation | Scripted demonstration or real Codex text responses; questions keep the current step |
 | Interactive visual | Deterministic width × height × depth illustration; recorded dimensions and volume |
 | Records | Atomic local saves, resume, export, cancellation, interrupted-turn recovery and request deduplication |
-| Matrix integration | Optional pairing, reviewed block placement and scale/reset presets, with saved runtime evidence |
+| Matrix integration | Optional pairing, explicit mentor scene suggestions, reviewed block placement and scale/reset presets, with saved runtime evidence |
 | Mentor read-aloud | Manual playback and stop for the latest saved reply, using a browser-reported local English voice |
 | Voice input and headset teaching | Planned optional adapters; unavailable in this candidate |
 
@@ -66,12 +66,14 @@ flowchart LR
   Evidence --> Client
 ```
 
-School owns mentors, teaching and learning records. Matrix owns scene/content execution and its observations. Open **Matrix connection** inside a lesson to pair with an updated local Matrix service. Requesting a block creates a proposal; approve it in Matrix's Operator before it runs. School records the reported placement without advancing the lesson or treating it as a physical measurement. Neither product imports the other's internal application model.
+School owns mentors, teaching and learning records. Matrix owns scene/content execution and its observations. Open **Matrix connection** inside a lesson to pair with an updated local Matrix service. Galileo can offer a scene suggestion; choosing **Build this demonstration** sends the saved request to Matrix's Codex planner. Review and Apply its proposal in the Matrix Operator. School records the reported command acknowledgments without advancing the lesson or treating them as physical measurements. Neither product imports the other's internal application model.
 
 - [User walkthrough](Docs/User-Guide.md)
 - [Optional mentor read-aloud](Docs/Mentor-Speech.md)
 - [Optional Matrix connection](Docs/Matrix-Bridge.md)
 - [Scale the lesson block in Matrix](Docs/Matrix-Scale-Lesson.md)
+- [Build a suggested mentor demonstration](Docs/Mentor-Demonstrations.md)
+- [Live mentor-to-scene Windows validation](Docs/Mentor-Scene-Windows-Validation.md)
 - [Prepared exhibit packages and readiness](Docs/Prepared-Exhibits.md)
 - [Development, configuration and tests](Docs/Development.md)
 - [Architecture and module boundaries](Docs/Architecture.md)
