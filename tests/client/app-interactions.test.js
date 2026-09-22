@@ -140,3 +140,34 @@ test('provider busy preserves the unsent draft and retries the same request when
   assert.equal(requests.length, 2); assert.deepEqual(requests[0].body, requests[1].body);
   assert.doesNotMatch(client.app.innerHTML, /message was not submitted/);
 });
+
+test('retrying the original message preserves a newer unsent draft', async t => {
+  let attempts = 0;
+  const client = await harness(t, (path, options) => {
+    if (path === '/api/v1/sessions' && options.method === 'POST') return { apiVersion: 1, session: session() };
+    if (path.endsWith('/sessions/session-1/turns')) {
+      attempts++;
+      if (attempts === 1) throw new Error('Reply lost after submission');
+      return { apiVersion: 1, session: session(), turn: { id: 'original-turn', status: 'completed' } };
+    }
+  });
+  await client.click('start'); client.input('What happens when width doubles?'); await client.send();
+  client.input('A new question I have not submitted.');
+  await client.click('retry');
+  const requests = client.calls.filter(call => call.path.endsWith('/sessions/session-1/turns'));
+  assert.equal(requests.length, 2); assert.deepEqual(requests[0].body, requests[1].body);
+  assert.equal(requests[1].body.text, 'What happens when width doubles?');
+  assert.match(client.app.innerHTML, />A new question I have not submitted\.<\/textarea>/);
+});
+
+test('advancing the opening lesson preserves a question that has not been submitted', async t => {
+  const client = await harness(t, (path, options) => {
+    if (path === '/api/v1/sessions' && options.method === 'POST') return { apiVersion: 1, session: session() };
+    if (path.endsWith('/sessions/session-1/turns')) return { apiVersion: 1, session: session({ stage: 'example', stageContent: stageContent(OBSERVATION_LESSON, 'example') }), turn: { id: 'advance-turn', status: 'completed' } };
+  });
+  await client.click('start'); client.input('A question I am still writing.'); await client.click('advance');
+  const request = client.calls.find(call => call.path.endsWith('/sessions/session-1/turns'));
+  assert.equal(request.body.kind, 'advance'); assert.equal(request.body.text, undefined);
+  assert.match(client.app.innerHTML, />A question I am still writing\.<\/textarea>/);
+  assert.match(client.app.innerHTML, /data-value="question" aria-pressed="true"/);
+});

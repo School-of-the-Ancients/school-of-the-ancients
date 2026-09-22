@@ -6,12 +6,14 @@ Recorded on 2026-09-22. This is a local School candidate and a separately tested
 
 On Windows, Node.js 24.16.0:
 
-- **41 tests passed, zero failed or skipped**, with `MATRIX_CHECKOUT` pointing to the isolated Matrix API checkout. This includes the opt-in cross-process test.
+- **45 tests passed, zero failed or skipped**, with `MATRIX_CHECKOUT` pointing to the isolated Matrix API checkout. This includes the opt-in cross-process test.
 - `npm run typecheck` passed.
 - `git diff --check` passed; Git reported only the checkout's normal LF/CRLF conversion notice.
 - The ordinary CI suite omits the opt-in cross-repository check unless `MATRIX_CHECKOUT` is explicitly set. It does not call a live model.
 
 Coverage includes complete lesson progression, exact saved lesson/mentor/artifact state, restart/interruption, request deduplication, cancellation and ignored late results, global provider concurrency, revision conflicts, malformed records, failed disk replacement and recovery, provider output/tool boundaries, Host/Origin checks, escaped transcript content and browser draft recovery.
+
+Independent review found and fixed two additional defects: coercible array values could masquerade as a question kind and advance the lesson, and retrying an older submission could erase a newer unsent draft. Regression tests now reject non-string enums without persistence/inference and preserve draft text and its question/answer intent across retry and stage changes.
 
 The real Matrix HTTP test starts a new ephemeral Python service and synthetic runtime. It verifies discovery, scoped pairing, current revision, no automatic Apply, owner Apply, command receipts and observed snapshot, duplicate suppression, cancellation and revocation. It uses no existing room, service token, or headset.
 

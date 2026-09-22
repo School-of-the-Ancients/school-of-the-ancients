@@ -45,6 +45,42 @@ test('duplicate start and turn requests remain idempotent; questions never advan
   assert.throws(() => service.createTurn(initial.session.id, { ...request, requestId: randomUUID() }), /changed/);
 });
 
+test('non-string turn kinds are rejected before persistence, inference or lesson advancement', async (t) => {
+  let calls = 0; const demo = new DemoMentorProvider(0);
+  const provider: MentorProvider = { status: () => demo.status(), respond: async (...args) => { calls++; return demo.respond(...args); } };
+  const { service, directory } = fixture(t, provider); const session = start(service);
+  const file = join(directory, 'school-store.json'); const original = readFileSync(file, 'utf8');
+  for (const kind of [['question'], ['answer'], ['advance'], {}, null, 1]) {
+    assert.throws(() => service.createTurn(session.id, { requestId: randomUUID(), expectedRevision: session.revision, kind, text: 'What is volume?' }),
+      (error: unknown) => !!error && typeof error === 'object' && 'code' in error && error.code === 'invalid_request' && 'status' in error && error.status === 400);
+    assert.deepEqual(service.session(session.id).session, session);
+    assert.equal(readFileSync(file, 'utf8'), original);
+  }
+  assert.equal(calls, 0); assert.equal(service.export(session.id).turns.length, 0);
+  const valid = await finished(service, service.createTurn(session.id, { requestId: randomUUID(), expectedRevision: session.revision, kind: 'question', text: 'What is volume?' }));
+  assert.equal(calls, 1); assert.equal(valid.session.stage, 'explain');
+});
+
+test('saved enum fields reject coercible arrays without replacing existing records', async (t) => {
+  const { service, directory } = fixture(t); const session = start(service);
+  const result = await finished(service, service.createTurn(session.id, { requestId: randomUUID(), expectedRevision: session.revision, kind: 'question', text: 'What is volume?' }));
+  service.close(); const file = join(directory, 'school-store.json'); const original = JSON.parse(readFileSync(file, 'utf8'));
+  const edits = [
+    (store: typeof original) => { store.sessions[session.id].stage = ['explain']; },
+    (store: typeof original) => { store.sessions[session.id].messages[0].role = ['mentor']; },
+    (store: typeof original) => { store.sessions[session.id].events[0].type = ['session_started']; },
+    (store: typeof original) => { store.turns[result.turn.id].kind = ['question']; },
+    (store: typeof original) => { store.turns[result.turn.id].status = ['completed']; },
+    (store: typeof original) => { store.turns[result.turn.id].receipt.mode = ['demo']; },
+    (store: typeof original) => { store.receipts[result.turn.requestId].kind = ['turn']; },
+  ];
+  for (const edit of edits) {
+    const changed = structuredClone(original); edit(changed); const encoded = JSON.stringify(changed); writeFileSync(file, encoded);
+    assert.throws(() => new FileSchoolRepository(directory), (error: unknown) => !!error && typeof error === 'object' && 'code' in error && error.code === 'invalid_store');
+    assert.equal(readFileSync(file, 'utf8'), encoded);
+  }
+});
+
 test('cancel persists terminal outcome and ignores a late model result without advancing', async (t) => {
   let resolveResult!: (value: MentorResult) => void;
   const provider: MentorProvider = { status: () => new DemoMentorProvider().status(), respond: () => new Promise((resolve) => { resolveResult = resolve; }) };

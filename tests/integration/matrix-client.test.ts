@@ -136,4 +136,3 @@ test('synchronous PC save has saved-scene evidence rather than invented runtime 
   const client = await f.pair(); const saved = await client.outcome('req-1');
   assert.deepEqual(saved.observed, { revision: 4, savedScene: 'fixture-room' }); assert.equal(saved.receipts.length, 0);
 });
-

@@ -112,7 +112,7 @@ function adoptSession(session, { reset = false } = {}) {
   if (reset || changedSession || changedArtifact) state.dimensions = normalDimensions(session.artifact.dimensions);
   state.sessions = [session, ...state.sessions.filter(item => item.id !== session.id)].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
   if (changedSession) state.draft = '';
-  if (changedSession || changedStage) state.intent = session.stage === 'explain' ? 'question' : 'answer';
+  if (changedSession || (changedStage && !state.draft.trim())) state.intent = session.stage === 'explain' ? 'question' : 'answer';
 }
 
 function adoptTurn(result) {
@@ -166,7 +166,7 @@ function monitorTurn(turnId) {
           state.retry = () => monitorTurn(turnId);
         } else pollTimer = setTimeout(poll, 700);
       } else {
-        if (previousStage !== result.session.stage) state.intent = result.session.stage === 'explain' ? 'question' : 'answer';
+        if (previousStage !== result.session.stage && !state.draft.trim()) state.intent = result.session.stage === 'explain' ? 'question' : 'answer';
         api('/catalog').then(catalog => { state.catalog = catalog; render(); }).catch(() => {});
       }
       render({ scrollTranscript: true });
@@ -191,10 +191,12 @@ function sendTurn(kind, text = '') {
   if (!state.session || state.session.status === 'completed' || state.turn?.status === 'running' || state.busy) return;
   if (kind !== 'advance' && !text.trim()) return;
   const id = state.session.id;
+  const submittedDraft = state.draft;
   const body = { requestId: makeRequestId(), expectedRevision: state.session.revision, kind, ...(text.trim() ? { text: text.trim() } : {}) };
   void operation('Sending…', async () => {
     const result = await api(`/sessions/${encodeURIComponent(id)}/turns`, body);
-    adoptTurn(result); state.draft = '';
+    adoptTurn(result);
+    if (kind !== 'advance' && state.draft === submittedDraft) state.draft = '';
     if (result.turn.status === 'running') monitorTurn(result.turn.id);
   });
 }

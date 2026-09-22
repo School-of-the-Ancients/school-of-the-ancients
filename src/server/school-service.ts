@@ -95,7 +95,7 @@ export class SchoolService {
     requireValue(!this.closed, 503, 'service_closed', 'The School service is stopping.');
     const body = object(raw); fields(body, ['requestId', 'expectedRevision', 'kind', 'text'], ['requestId', 'expectedRevision', 'kind']);
     const requestId = identifier(body.requestId, 'request ID');
-    requireValue(['question', 'answer', 'advance'].includes(String(body.kind)), 400, 'invalid_request', 'Choose a question, answer, or advance action.');
+    requireValue(typeof body.kind === 'string' && ['question', 'answer', 'advance'].includes(body.kind), 400, 'invalid_request', 'Choose a question, answer, or advance action.');
     const kind = body.kind as CreateTurnRequest['kind']; const text = learnerText(body.text, kind !== 'advance');
     let target: LessonStage | undefined; let created = false;
     const payload = { sessionId, ...body };
