@@ -5,7 +5,7 @@ import type { MentorTurn, SchoolSession } from '../shared/contracts.ts';
 import { requireValue, SchoolError } from './errors.ts';
 import { validateMatrixLedger } from './matrix-ledger.ts';
 
-export interface RequestReceipt { fingerprint: string; kind: 'start' | 'turn' | 'cancel' | 'experiment' | 'matrix_pair' | 'matrix_disconnect' | 'matrix_demonstration' | 'matrix_cancel'; resourceId: string; }
+export interface RequestReceipt { fingerprint: string; kind: 'start' | 'turn' | 'cancel' | 'experiment' | 'matrix_pair' | 'matrix_disconnect' | 'matrix_demonstration' | 'matrix_cancel' | 'matrix_scale' | 'matrix_scale_cancel'; resourceId: string; }
 export interface SchoolStore { formatVersion: 1; sessions: Record<string, SchoolSession>; turns: Record<string, MentorTurn>; receipts: Record<string, RequestReceipt>; }
 const MAX_BYTES = 16 * 1024 * 1024;
 const MAX_SESSIONS = 200;
@@ -59,7 +59,7 @@ function validStore(value: unknown): asserts value is SchoolStore {
     if (raw.status === 'completed') requireValue(savedText(raw.output, 8000) && record(raw.receipt) && raw.receipt.completedTurn === true && raw.receipt.toolCallCount === 0 && savedEnum(raw.receipt.mode, ['demo', 'codex-cli']), 500, 'invalid_store', 'Saved provider receipt is invalid; existing data was preserved.');
   }
   for (const [id, raw] of Object.entries(value.receipts)) {
-    requireValue(savedId(id) && record(raw) && typeof raw.fingerprint === 'string' && /^[a-f0-9]{64}$/.test(raw.fingerprint) && typeof raw.resourceId === 'string' && savedEnum(raw.kind, ['start', 'turn', 'cancel', 'experiment', 'matrix_pair', 'matrix_disconnect', 'matrix_demonstration', 'matrix_cancel']), 500, 'invalid_store', 'Saved receipt is invalid; existing data was preserved.');
+    requireValue(savedId(id) && record(raw) && typeof raw.fingerprint === 'string' && /^[a-f0-9]{64}$/.test(raw.fingerprint) && typeof raw.resourceId === 'string' && savedEnum(raw.kind, ['start', 'turn', 'cancel', 'experiment', 'matrix_pair', 'matrix_disconnect', 'matrix_demonstration', 'matrix_cancel', 'matrix_scale', 'matrix_scale_cancel']), 500, 'invalid_store', 'Saved receipt is invalid; existing data was preserved.');
     requireValue(Object.hasOwn(raw.kind === 'turn' || raw.kind === 'cancel' ? value.turns : value.sessions, raw.resourceId), 500, 'invalid_store', 'Saved receipt points to a missing record; existing data was preserved.');
   }
 }

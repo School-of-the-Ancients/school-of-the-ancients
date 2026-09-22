@@ -45,7 +45,7 @@ Live mode sends the selected lesson, recent conversation and recorded browser ex
 | Conversation | Scripted demonstration or real Codex text responses; questions keep the current step |
 | Interactive visual | Deterministic width × height × depth illustration; recorded dimensions and volume |
 | Records | Atomic local saves, resume, export, cancellation, interrupted-turn recovery and request deduplication |
-| Matrix integration | Optional pairing panel, prepared block request, Operator review, and saved runtime evidence |
+| Matrix integration | Optional pairing, reviewed block placement and scale/reset presets, with saved runtime evidence |
 | Mentor read-aloud | Manual playback and stop for the latest saved reply, using a browser-reported local English voice |
 | Voice input and headset teaching | Planned optional adapters; unavailable in this candidate |
 
@@ -71,6 +71,7 @@ School owns mentors, teaching and learning records. Matrix owns scene/content ex
 - [User walkthrough](Docs/User-Guide.md)
 - [Optional mentor read-aloud](Docs/Mentor-Speech.md)
 - [Optional Matrix connection](Docs/Matrix-Bridge.md)
+- [Scale the lesson block in Matrix](Docs/Matrix-Scale-Lesson.md)
 - [Prepared exhibit packages and readiness](Docs/Prepared-Exhibits.md)
 - [Development, configuration and tests](Docs/Development.md)
 - [Architecture and module boundaries](Docs/Architecture.md)

@@ -2,18 +2,44 @@ name: School checks
 on:
   push:
   pull_request:
+permissions:
+  contents: read
 jobs:
   local-contracts:
+    timeout-minutes: 15
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: school
+    env:
+      MATRIX_CHECKOUT: ${{ github.workspace }}/matrix
+      MATRIX_REQUIRE_SCALE: '1'
+      PYTHON_EXE: python
     steps:
       - uses: actions/checkout@v4
+        with:
+          path: school
+          persist-credentials: false
+      - name: Check out the pinned Matrix API and scale contract
+        uses: actions/checkout@v4
+        with:
+          repository: School-of-the-Ancients/matrix-loading-operator
+          ref: ddb2a0df065321104244f31bbb0af367e3524dec
+          path: matrix
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
           cache: npm
+          cache-dependency-path: school/package-lock.json
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
       - run: npm ci
       - run: npm run typecheck
       - run: npm test
+      - name: Check acceptance-runner cleanup with isolated fakes
+        run: python -B -m unittest discover -s tests -p test_windows_acceptance_runner.py -v

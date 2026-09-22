@@ -14,7 +14,7 @@ import { createSchoolServer } from '../../src/server/http.ts';
 
 // Opt-in acceptance against the actual Python service. All records, credentials,
 // ports and runtime observations belong to this synthetic fixture.
-for (const mode of ['virtual', 'ar'] as const) test(`School HTTP → Matrix HTTP → ${mode} runtime placement; durable restart without replay`, { skip: !process.env.MATRIX_CHECKOUT, timeout: 25000 }, async t => {
+for (const mode of ['virtual', 'ar', 'scale'] as const) test(`School HTTP → Matrix HTTP → ${mode === 'scale' ? 'virtual scale 8 and reset 1' : mode + ' runtime placement'}; durable restart without replay`, { skip: !process.env.MATRIX_CHECKOUT ? 'Set MATRIX_CHECKOUT to exercise the real Python Matrix service.' : false, timeout: 25000 }, async t => {
   const owner = randomBytes(24).toString('hex');
   const python = `import os,sys,tempfile,threading,json
 sys.path.insert(0,os.path.join(os.environ['MATRIX_CHECKOUT'],'ControlService'))
@@ -43,6 +43,12 @@ with tempfile.TemporaryDirectory(prefix='school-bridge-test-') as folder:
     const response = await fetch(matrixUrl + path, { method: body === undefined ? 'GET' : 'POST', headers: { Authorization: `Bearer ${owner}`, 'Content-Type': 'application/json' },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }), signal: AbortSignal.timeout(5000) });
     const value = await response.json(); assert.equal(response.status, 200, JSON.stringify(value)); return value;
+  }
+  if (mode === 'scale') {
+    const discovery = await matrix('/api/v1/discovery');
+    const available = discovery.capabilities?.['experiment.block-scale.v1']?.version === 1;
+    if (process.env.MATRIX_REQUIRE_SCALE === '1') assert.equal(available, true, 'CI must use the pinned Matrix checkout advertising experiment.block-scale.v1.');
+    if (!available) { t.skip('The supplied legacy Matrix checkout does not advertise experiment.block-scale.v1; placement tests still run.'); return; }
   }
   const snapshot: Record<string, any> = { scene: { schemaVersion: 1, roomId: 'synthetic-bridge-room', objects: [] as Record<string, unknown>[] },
     assets: [{ assetId: 'block', displayName: 'Block' }], anchors: [{ anchorId: 'floor', displayName: 'Floor' }],
@@ -101,17 +107,70 @@ with tempfile.TemporaryDirectory(prefix='school-bridge-test-') as folder:
   assert.equal(observed.session.stage, started.session.stage); assert.deepEqual(observed.session.artifact, started.session.artifact);
   assert.match(observed.session.messages.at(-1).text, /does not establish camera evidence/);
   assert.equal((await exchange()).commands.length, 0);
+  if (mode === 'scale') {
+    const originalPose = structuredClone(snapshot.scene.objects[0].transform);
+    let sourceExperimentId: string | undefined;
+    for (const action of ['configure', 'reset'] as const) {
+      const scaleReady = await school(path + '/matrix');
+      assert.equal(scaleReady.bridge.scale.available, true);
+      const scaleRequest = { requestId: randomUUID(), expectedRevision: scaleReady.session.revision,
+        bindingId: paired.bridge.binding.id, expectedMatrixRevision: scaleReady.bridge.scale.expectedMatrixRevision,
+        demonstrationId: request.requestId, action,
+        ...(action === 'configure' ? { factors: { x: 2, y: 2, z: 2 } } : { baselineExperimentId: sourceExperimentId }) };
+      const proposed = await school(path + '/matrix/experiments', scaleRequest);
+      assert.equal(proposed.experiment.status, 'ready'); assert.equal(proposed.experiment.requiresApply, true);
+      assert.equal(proposed.experiment.observed, null);
+      assert.deepEqual(proposed.experiment.proof.baseline.transform, originalPose);
+      assert.equal(proposed.experiment.proof.baseline.objectId, 'synthetic-observed-block');
+      assert.equal(proposed.experiment.proof.baseline.roomId, snapshot.scene.roomId);
+      assert.equal(proposed.experiment.matrixSessionId, paired.bridge.binding.matrixSessionId);
+      assert.equal(proposed.experiment.runtimeSessionId, paired.bridge.binding.runtimeSessionId);
+      assert.equal(proposed.experiment.correlationId, scaleRequest.requestId);
+      assert.equal((await exchange()).commands.length, 0, 'School never dispatches before owner Apply');
+      assert.deepEqual(await school(path + '/matrix/experiments', scaleRequest), proposed, 'Idempotent School retry never posts a second Matrix action');
+      await school(path + '/matrix/experiments/' + scaleRequest.requestId + '/apply', {}, 404);
+      const applied = await matrix(`/api/v1/operator/requests/${paired.bridge.binding.matrixSessionId}/${scaleRequest.requestId}/apply`, {});
+      const delivered = (await exchange()).commands;
+      assert.equal(delivered.length, 1); assert.equal(delivered[0].op, 'set_transform');
+      assert.equal(delivered[0].objectId, 'synthetic-observed-block');
+      assert.deepEqual(applied.commandIds, [delivered[0].requestId]);
+      assert.equal((await school(path + '/matrix/experiments/' + scaleRequest.requestId)).experiment.status, 'running');
+      const target = delivered[0].transform;
+      assert.deepEqual(target.position, originalPose.position); assert.deepEqual(target.rotation, originalPose.rotation);
+      for (const axis of ['x', 'y', 'z']) assert.equal(target.scale[axis], originalPose.scale[axis] * (action === 'configure' ? 2 : 1));
+      // This is an explicitly synthetic runtime acknowledgement, not a Unity execution claim.
+      snapshot.scene.objects[0].transform = structuredClone(target);
+      await exchange([{ requestId: delivered[0].requestId, ok: true, error: '', objectId: 'synthetic-observed-block' }]);
+      const completed = await school(path + '/matrix/experiments/' + scaleRequest.requestId);
+      assert.equal(completed.experiment.status, 'succeeded'); assert.equal(completed.experiment.requiresApply, false);
+      assert.equal(completed.experiment.observed.mathematicalVolumeRatio, action === 'configure' ? 8 : 1);
+      assert.equal(completed.experiment.observed.physicalMeasurement, false);
+      assert.deepEqual(completed.experiment.commandIds, [delivered[0].requestId]);
+      assert.equal(completed.experiment.receipts[0].objectId, 'synthetic-observed-block');
+      assert.equal(completed.session.stage, started.session.stage); assert.deepEqual(completed.session.artifact, started.session.artifact);
+      assert.deepEqual(completed.session.matrix.demonstrations[0].observed, observed.demonstration.observed, 'Scaling preserves historical placement evidence');
+      assert.equal((await exchange()).commands.length, 0);
+      sourceExperimentId = scaleRequest.requestId;
+    }
+    assert.deepEqual(snapshot.scene.objects[0].transform, originalPose);
+  }
   const ready = await school(path + '/matrix');
   const pendingId = randomUUID();
   const pending = await school(path + '/matrix/demonstrations', { requestId: pendingId, expectedRevision: ready.session.revision, bindingId: ready.bridge.binding.id, expectedMatrixRevision: ready.bridge.readiness.matrixRequest.revision });
   assert.equal(pending.demonstration.status, 'ready');
   const disk = readFileSync(join(directory, 'school-store.json'), 'utf8');
-  assert.equal(disk.includes(code.pairingCode), false); assert.equal(disk.includes(owner), false); assert.equal(disk.includes('synthetic-bridge-room'), false);
+  assert.equal(disk.includes(code.pairingCode), false); assert.equal(disk.includes(owner), false);
+  assert.equal(disk.includes('synthetic-bridge-room'), true, 'A minimal room ID binds later scale requests; no raw room snapshot is retained');
+  assert.equal(disk.includes('roomContext'), false); assert.equal(disk.includes('selection'), false);
 
   await stop(); service = new SchoolService(new FileSchoolRepository(directory), new DemoMentorProvider(0)); server = createSchoolServer({ service }); await listen();
   const restored = await school(path + '/matrix'); assert.equal(restored.bridge.connected, false);
   const oldSuccess = restored.bridge.demonstrations.find((d: any) => d.id === request.requestId);
   assert.deepEqual(oldSuccess.observed, observed.demonstration.observed); assert.equal(oldSuccess.status, 'succeeded');
+  if (mode === 'scale') {
+    assert.deepEqual(restored.bridge.experiments.map((item: any) => item.observed.mathematicalVolumeRatio), [8, 1]);
+    assert.equal(restored.bridge.scale.available, false, 'A restart never silently re-pairs or replays historical scale work');
+  }
   assert.equal(restored.bridge.demonstrations.find((d: any) => d.id === pendingId).status, 'unconfirmed');
   const unresolved = await school(path + '/matrix/demonstrations/' + pendingId); assert.equal(unresolved.demonstration.status, 'unconfirmed');
   assert.match(unresolved.demonstration.checkError, /original pairing/); assert.equal((await exchange()).commands.length, 0);

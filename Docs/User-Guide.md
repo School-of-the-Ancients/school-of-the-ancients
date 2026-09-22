@@ -40,3 +40,7 @@ The browser's **Apply experiment** still changes only its mathematical illustrat
 If School restarts, your successful demonstration history remains saved, but its temporary connection credentials are gone. Pending work becomes unconfirmed and is never automatically repeated. Inspect unresolved work in the original Operator before pairing again. You can always continue the browser lesson without Matrix. See [connection details and troubleshooting](Matrix-Bridge.md).
 
 Voice input, live historical avatars, additional lessons, hosted student sessions and in-headset teaching are subsequent roadmap work. Optional browser read-aloud uses an ordinary device voice. The text lesson remains available independently.
+
+## Scale the block in Matrix
+
+After School confirms a block placement in Matrix’s desktop white room, open **Try scale in Matrix**. Choose a preset, review and Apply in the Matrix Operator, then inspect the confirmed ratio. **Reset Matrix block** is a separate reviewed proposal. This changes the Matrix block; the browser experiment and lesson step stay separate. See the [complete walkthrough](Matrix-Scale-Lesson.md). Quest AR scaling is not available in this version.

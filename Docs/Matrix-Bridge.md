@@ -1,6 +1,6 @@
 # Optional local Matrix companion
 
-School remains a standalone text lesson with its browser geometry illustration. This first bridge adds one optional prepared demonstration: **request one installed built-in block at the placement point selected in Matrix**. The request is always `Place a block here.` using Matrix's offline rules. Neither the learner nor the mentor can supply arbitrary scene commands through this route.
+School remains a standalone text lesson with its browser geometry illustration. The placement bridge adds one optional prepared demonstration: **request one installed built-in block at the placement point selected in Matrix**. The request is always `Place a block here.` using Matrix's offline rules. Neither the learner nor the mentor can supply arbitrary scene commands through this route. After confirmed placement, the optional [Matrix scale lesson](Matrix-Scale-Lesson.md) can propose bounded scale presets and a separate reset in the desktop white room.
 
 School owns the learning session, transcript, lesson stage and durable record. Matrix owns room state, installed content, command execution and observed runtime receipts. The connection uses the versioned Matrix client API and existing TypeScript client; no shared Matrix database or Unity internals are read.
 
@@ -33,7 +33,7 @@ The bounded recipe also verifies the proposal's selected XYZ, zero rotation and 
 
 ## HTTP contract
 
-All routes use School's same-origin, loopback-only API and return `MatrixBridgeResponse`: current `session`, `bridge` connection/readiness/history, and an optional `demonstration`. Browser code talks only to School; the School server talks to Matrix. There is no School Apply endpoint.
+All routes use School's same-origin, loopback-only API and return `MatrixBridgeResponse`: current `session`, `bridge` connection/readiness/history, and an optional `demonstration` or `experiment`. `bridge.experiments` contains the separate scale history, while `bridge.scale` reports current eligibility and the Matrix revision. Browser code talks only to School; the School server talks to Matrix. There is no School Apply endpoint.
 
 | Method and route | Body / behavior |
 | --- | --- |
@@ -43,6 +43,9 @@ All routes use School's same-origin, loopback-only API and return `MatrixBridgeR
 | `POST .../matrix/demonstrations` | `{requestId, expectedRevision, bindingId, expectedMatrixRevision}`; fixed block recipe only. |
 | `GET .../matrix/demonstrations/:requestId` | Poll the original request under its original pairing. |
 | `POST .../matrix/demonstrations/:requestId/cancel` | `{requestId}` identifying this cancellation action, distinct from the demonstration ID in the path. |
+| `POST .../matrix/experiments` | `{requestId, expectedRevision, bindingId, expectedMatrixRevision, demonstrationId, action, factors?, baselineExperimentId?}`; configure/reset the confirmed block only. |
+| `GET .../matrix/experiments/:requestId` | Reconcile the original experiment without replay. |
+| `POST .../matrix/experiments/:requestId/cancel` | `{requestId}`; cancel only before Operator Apply. |
 
 Use a new opaque action ID for a new user action. Repeating an identical action ID returns its recorded result without another mutation. Changing non-secret action data with the same ID returns `request_conflict`. A pairing action never stores its secret code or code digest; changing the code while reusing the same action ID still only returns the first action's state. Obtain a fresh code and use a fresh action ID to pair again deliberately.
 
@@ -62,7 +65,7 @@ Contradictory results are rejected: a cancelled or unapplied request cannot cont
 - Matrix itself retains client outcomes in memory. A Matrix service restart, runtime lease change, expiry or revocation may prevent reconciliation. In that case inspect the Operator; School cannot infer success from a later room snapshot.
 - Command acknowledgements are never dropped or attached to another request. Previously confirmed evidence cannot be replaced by a later mismatched object transform or downgraded by a conflicting response.
 
-Limits are 16 pairing records and 64 demonstration records per School session, in addition to existing store/session/transcript limits. Capacity failures preserve existing records. This slice does not prune or migrate learning data.
+Limits are 16 pairing records, 64 demonstration records and 64 scale experiment records per School session, in addition to existing store/session/transcript limits. Capacity failures preserve existing records. This slice does not prune or migrate learning data.
 
 ## Validation boundaries
 

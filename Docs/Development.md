@@ -43,17 +43,28 @@ Tests cover request identity, concurrent turns, stale revisions, restart recover
 
 ### Matrix contract test
 
-This optional check requires an updated Matrix checkout containing `ControlService/client_api.py`:
+These local checks require an updated Matrix checkout containing `ControlService/client_api.py`. The scale case also requires the `experiment.block-scale.v1` capability from Matrix PR #36:
 
 ```powershell
 $env:MATRIX_CHECKOUT='<absolute Matrix checkout path>'
+$env:MATRIX_REQUIRE_SCALE='1'
 node --test tests/integration/matrix-http.test.ts
 node --test tests/integration/school-matrix-http.test.ts
 ```
 
 `PYTHON_EXE` optionally selects Python. The test starts a **new ephemeral loopback** Matrix server on a dynamically assigned port with a random test credential and synthetic room. It pairs the School-side client, proposes an edit, confirms no pre-Apply command, performs owner review/Apply, delivers synthetic runtime receipts and verifies results, deduplication, cancellation and revocation. It shuts down its own server and never contacts an existing Operator or Quest.
 
-The second test goes through School's actual HTTP routes before reaching Matrix, then reopens School's durable records to verify confirmed evidence survives and an unfinished proposal is not replayed. Without `MATRIX_CHECKOUT`, both cross-repository tests skip explicitly; ordinary tests still exercise deterministic transport, preflight and bridge fixtures. The ordinary suite never calls a live model or headset.
+The second file tests three School HTTP paths: virtual placement, AR placement and virtual scale/reset. It reopens School's durable records to verify confirmed evidence survives and unfinished work is not replayed. Together the two files contain four cross-repository tests. Without `MATRIX_CHECKOUT`, all four skip explicitly; ordinary tests still exercise deterministic transport, preflight and bridge fixtures. With an older Matrix checkout, only the scale case may skip unless `MATRIX_REQUIRE_SCALE=1`, which requires the capability and fails if it is absent. These checks use synthetic runtime receipts and do not establish Unity or headset acceptance.
+
+GitHub Actions runs all four cases on Windows and Ubuntu. It checks out Matrix commit `ddb2a0df065321104244f31bbb0af367e3524dec` beside the School checkout, sets `MATRIX_CHECKOUT` and `MATRIX_REQUIRE_SCALE=1`, and runs the complete Node test suite and type check. Separate checkout directories keep Matrix's unrelated files outside Node test discovery. CI uses Node 24 and Python 3.13, with read-only repository permissions; it does not call a live model or headset.
+
+CI also runs the Windows acceptance runner's portable cleanup regressions using isolated fake processes and temporary files:
+
+```powershell
+python -B -m unittest discover -s tests -p test_windows_acceptance_runner.py -v
+```
+
+These four Python tests exercise failure cleanup and preservation of pre-existing configuration on either platform. They do not launch Unity or substitute for the separate actual Windows-player acceptance run.
 
 ### Separate local companion sample
 
@@ -74,3 +85,7 @@ Matrix uses memory-only request ledgers in this slice. Reconcile ambiguous outco
 Graceful shutdown releases `.writer.lock`. A forcibly killed process can leave that lock. Before recovery, stop the owning School process, verify the lock's recorded PID belongs to that stopped instance, and back up the data directory. Remove only the stale `.writer.lock`, then restart. Never remove a live process's lock or delete `school-store.json` to suppress a validation error. Invalid records are preserved for inspection.
 
 An interrupted provider turn is recorded as interrupted on startup. If storage becomes unavailable after inference, status reports a persistence failure instead of pretending completion; once storage recovers, the service records the failed turn without rerunning inference. Exported JSON is a portable record, but automatic import and checkpoint restore are not implemented yet.
+
+### Historical Matrix scale context
+
+When a lesson has Matrix scale records, mentor input includes at most four recent scale requests and the latest confirmed result. Summaries identify requested and acknowledged dimensionless factors, the mathematical ratio, status and historical timing. They exclude credentials, room snapshots, object/binding IDs, origins and full transforms. A later unconfirmed check remains explicit; no record proves current presence, physical volume, browser geometry or learner mastery.

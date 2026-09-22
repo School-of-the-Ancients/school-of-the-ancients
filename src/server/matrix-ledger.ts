@@ -5,6 +5,8 @@ export const MATRIX_ACTIVE_STATUSES = new Set(['submitting', 'planning', 'ready'
 export const MATRIX_STATUSES = [...MATRIX_ACTIVE_STATUSES, 'succeeded', 'failed', 'partial', 'cancelled', 'stale', 'unconfirmed', 'needs_clarification', 'review_only', 'error'];
 export const MAX_MATRIX_BINDINGS = 16;
 export const MAX_MATRIX_DEMONSTRATIONS = 64;
+export const MAX_MATRIX_EXPERIMENTS = 64;
+export const MATRIX_BLOCKING_STATUSES = new Set([...MATRIX_ACTIVE_STATUSES, 'unconfirmed']);
 const record = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
 const text = (v: unknown, max = 512) => typeof v === 'string' && v.length <= max && !/[\u0000-\u001f]/.test(v);
 const id = (v: unknown) => typeof v === 'string' && /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(v);
@@ -23,7 +25,7 @@ export function localMatrixOrigin(value: unknown): string {
 
 /** Exact field allowlists prevent accidentally persisting bearer tokens, pairing codes or room dumps. */
 export function validateMatrixLedger(value: unknown): asserts value is MatrixLessonLedger {
-  check(record(value)); keys(value, ['bindings', 'activeBindingId', 'demonstrations']);
+  check(record(value)); keys(value, ['bindings', 'activeBindingId', 'demonstrations', 'experiments']);
   check(Array.isArray(value.bindings) && value.bindings.length <= MAX_MATRIX_BINDINGS && Array.isArray(value.demonstrations) && value.demonstrations.length <= MAX_MATRIX_DEMONSTRATIONS);
   const bindingIds = new Set<string>();
   for (const binding of value.bindings) {
@@ -75,7 +77,7 @@ export function validateMatrixLedger(value: unknown): asserts value is MatrixLes
     check(demo.status !== 'partial');
     if (demo.observed !== null) {
       check(demo.status === 'succeeded');
-      check(record(demo.observed)); keys(demo.observed, ['revision', 'objects', 'source']);
+      check(record(demo.observed)); keys(demo.observed, ['revision', 'objects', 'source', 'roomId']); check(demo.observed.roomId === undefined || id(demo.observed.roomId));
       check(integer(demo.observed.revision) && Number(demo.observed.revision) >= Number(demo.expectedMatrixRevision) && demo.observed.source === 'matrix-runtime' && Array.isArray(demo.observed.objects) && demo.observed.objects.length === 1);
       for (const item of demo.observed.objects) {
         check(record(item)); keys(item, ['objectId', 'assetId', 'anchorId', 'position', 'scale']);
@@ -91,4 +93,60 @@ export function validateMatrixLedger(value: unknown): asserts value is MatrixLes
     }
     check(demo.status !== 'succeeded' || (demo.requiresApply === false && demo.observed !== null && commandIds.length === 1 && demo.receipts.length === 1 && demo.receipts.every((ack) => ack.ok)));
   }
+  check(value.experiments === undefined || Array.isArray(value.experiments) && value.experiments.length <= MAX_MATRIX_EXPERIMENTS);
+  const experimentIds = new Set<string>();
+  for (const experiment of value.experiments ?? []) {
+    check(record(experiment)); keys(experiment, ['id','bindingId','demonstrationId','matrixSessionId','runtimeSessionId','correlationId','action','factors','baselineExperimentId','proof','expectedMatrixRevision','status','requiresApply','sequence','createdAt','updatedAt','proposalSummary','commandIds','receipts','observed','error','lastCheckedAt','checkError']);
+    check(id(experiment.id) && !experimentIds.has(experiment.id as string) && !demonstrationIds.has(experiment.id as string));
+    const binding = value.bindings.find(item => item.id === experiment.bindingId);
+    const demo = value.demonstrations.find(item => item.id === experiment.demonstrationId);
+    check(binding && demo && demo.bindingId === binding.id && demo.status === 'succeeded' && demo.observed && demo.placement.mode === 'direct');
+    check(experiment.matrixSessionId === binding.matrixSessionId && experiment.runtimeSessionId === binding.runtimeSessionId && experiment.correlationId === experiment.id);
+    check(enumValue(experiment.action, ['configure','reset']) && vector(experiment.factors) && Object.values(experiment.factors as object).every(item => typeof item === 'number' && item >= .25 && item <= 4));
+    const proof = experiment.proof; check(record(proof)); keys(proof, ['action','baseline','factors','expectedTransform']);
+    check(proof.action === experiment.action && sameVector(proof.factors, experiment.factors));
+    const baseline = proof.baseline; check(record(baseline)); keys(baseline, ['roomId','objectId','assetId','anchorId','transform']);
+    const placed = demo.observed.objects[0];
+    check(id(baseline.roomId) && baseline.roomId === demo.observed.roomId && baseline.objectId === placed.objectId && baseline.assetId === 'block' && baseline.anchorId === placed.anchorId);
+    checkTransform(baseline.transform); checkTransform(proof.expectedTransform);
+    check(sameVector(baseline.transform.position, placed.position) && sameVector(baseline.transform.scale, placed.scale) && sameVector(baseline.transform.rotation, {x:0,y:0,z:0}));
+    check(sameVector(proof.expectedTransform.position, baseline.transform.position) && sameVector(proof.expectedTransform.rotation, baseline.transform.rotation));
+    for (const axis of ['x','y','z']) check(Math.abs(proof.expectedTransform.scale[axis] - baseline.transform.scale[axis] * (experiment.factors as Record<string,number>)[axis]) <= .00001);
+    if (experiment.baselineExperimentId !== undefined) {
+      check(typeof experiment.baselineExperimentId === 'string' && experimentIds.has(experiment.baselineExperimentId));
+      const source = (value.experiments as Array<Record<string,unknown>>).find(item => item.id === experiment.baselineExperimentId)!;
+      check(source.bindingId === experiment.bindingId && source.demonstrationId === demo.id && source.status === 'succeeded' && source.observed);
+      check(JSON.stringify((source.proof as Record<string,unknown>).baseline) === JSON.stringify(baseline));
+    }
+    if (experiment.action === 'reset') check(experiment.baselineExperimentId !== undefined && sameVector(experiment.factors, {x:1,y:1,z:1}));
+    check(integer(experiment.expectedMatrixRevision) && enumValue(experiment.status, MATRIX_STATUSES) && integer(experiment.sequence) && typeof experiment.requiresApply === 'boolean' && date(experiment.createdAt) && date(experiment.updatedAt));
+    check(experiment.proposalSummary === null || text(experiment.proposalSummary,1000)); check(experiment.error === null || text(experiment.error)); check(experiment.checkError === undefined || text(experiment.checkError)); check(experiment.lastCheckedAt === undefined || date(experiment.lastCheckedAt));
+    check(Array.isArray(experiment.commandIds) && experiment.commandIds.length <= 1 && experiment.commandIds.every(id));
+    check(Array.isArray(experiment.receipts) && experiment.receipts.length <= 1);
+    for (const ack of experiment.receipts) { check(record(ack)); keys(ack,['requestId','ok','error','objectId']); check(experiment.commandIds.includes(ack.requestId) && typeof ack.ok === 'boolean' && text(ack.error) && (ack.objectId === '' || id(ack.objectId))); }
+    check(experiment.status !== 'ready' || experiment.requiresApply === true && experiment.observed === null);
+    check(experiment.requiresApply === false || experiment.status === 'ready');
+    if (enumValue(experiment.status,['submitting','planning','ready','cancelled','stale','needs_clarification','review_only','error'])) check(experiment.commandIds.length === 0 && experiment.receipts.length === 0 && experiment.observed === null);
+    if (enumValue(experiment.status,['queued','running'])) check(experiment.commandIds.length === 1 && experiment.receipts.length === 0 && experiment.observed === null);
+    if (experiment.status === 'failed') check(experiment.commandIds.length === 1 && experiment.receipts.length === 1 && experiment.receipts[0].ok === false);
+    check(experiment.status !== 'partial');
+    if (experiment.observed !== null) {
+      const observed = experiment.observed; check(record(observed)); keys(observed,['source','revision','relativeFactors','mathematicalVolumeRatio','units','physicalMeasurement']);
+      check(experiment.status === 'succeeded' && observed.source === 'acknowledged-runtime-transform' && observed.units === 'dimensionless ratio' && observed.physicalMeasurement === false && integer(observed.revision) && Number(observed.revision) >= Number(experiment.expectedMatrixRevision));
+      check(vector(observed.relativeFactors) && ['x','y','z'].every(axis => Math.abs((observed.relativeFactors as Record<string,number>)[axis] - (experiment.factors as Record<string,number>)[axis]) <= .00001 / (baseline.transform as {scale:Record<string,number>}).scale[axis] + 1e-12) && typeof observed.mathematicalVolumeRatio === 'number' && Number.isFinite(observed.mathematicalVolumeRatio));
+      const factors = observed.relativeFactors as Record<string,number>; check(Math.abs(observed.mathematicalVolumeRatio - factors.x*factors.y*factors.z) <= .00001);
+      check(experiment.commandIds.length === 1 && experiment.receipts.length === 1 && experiment.receipts[0].ok === true && experiment.receipts[0].objectId === baseline.objectId && experiment.requiresApply === false);
+    }
+    check(experiment.status !== 'succeeded' || experiment.observed !== null);
+    experimentIds.add(experiment.id as string);
+  }
+
+}
+
+function sameVector(a: unknown, b: unknown): boolean {
+  return vector(a) && vector(b) && ['x','y','z'].every(axis => Math.abs((a as Record<string,number>)[axis] - (b as Record<string,number>)[axis]) <= .00001);
+}
+function checkTransform(value: unknown): asserts value is {position:Record<string,number>;rotation:Record<string,number>;scale:Record<string,number>} {
+  check(record(value)); keys(value,['position','rotation','scale']); check(vector(value.position) && vector(value.rotation) && vector(value.scale));
+  check(Object.values(value.position as Record<string,number>).every(n => Math.abs(n) <=100) && Object.values(value.rotation as Record<string,number>).every(n => Math.abs(n) <=36000) && Object.values(value.scale as Record<string,number>).every(n => n>=.01 && n<=20));
 }
