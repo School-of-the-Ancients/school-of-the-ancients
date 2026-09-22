@@ -1,0 +1,35 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { once } from 'node:events';
+import { get } from 'node:http';
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve, sep } from 'node:path';
+import { randomUUID } from 'node:crypto';
+import type { AddressInfo } from 'node:net';
+import { createSchoolServer } from '../../src/server/http.ts';
+import { FileSchoolRepository } from '../../src/server/repository.ts';
+import { SchoolService } from '../../src/server/school-service.ts';
+import { DemoMentorProvider } from '../../src/server/providers.ts';
+
+test('HTTP serves standalone app, persists a lesson and rejects cross-origin mutations/reads', async (t) => {
+  const directory = mkdtempSync(join(tmpdir(), 'school-http-')); const publicDirectory = join(directory, 'public'); mkdirSync(publicDirectory); writeFileSync(join(publicDirectory, 'index.html'), '<h1>School</h1>');
+  const service = new SchoolService(new FileSchoolRepository(join(directory, 'data')), new DemoMentorProvider(0));
+  const server = createSchoolServer({ service, publicDirectory }); server.listen(0, '127.0.0.1'); await once(server, 'listening');
+  t.after(async () => { service.close(); server.close(); server.closeAllConnections(); await once(server, 'close'); assert.ok(resolve(directory).startsWith(resolve(tmpdir()) + sep)); rmSync(directory, { recursive: true, force: true }); });
+  const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  assert.match(await (await fetch(base)).text(), /School/);
+  const health = await (await fetch(base + '/api/v1/health')).json(); assert.equal(health.provider.mode, 'demo');
+  const body = { requestId: randomUUID(), mentorId: 'galileo', lessonId: 'observation-and-scale' };
+  const denied = await fetch(base + '/api/v1/sessions', { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: 'https://evil.example' }, body: JSON.stringify(body) }); assert.equal(denied.status, 403);
+  const deniedRead = await fetch(base + '/api/v1/sessions', { headers: { Origin: 'https://evil.example' } }); assert.equal(deniedRead.status, 403);
+  const deniedHost = await new Promise<number | undefined>((resolve, reject) => { get(base + '/api/v1/health', { headers: { Host: 'evil.example' } }, (response) => { response.resume(); resolve(response.statusCode); }).on('error', reject); }); assert.equal(deniedHost, 403);
+  const created = await fetch(base + '/api/v1/sessions', { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: base }, body: JSON.stringify(body) }); assert.equal(created.status, 201);
+  const session = (await created.json()).session;
+  assert.equal((await (await fetch(base + '/api/v1/sessions')).json()).sessions.length, 1);
+  const exported = await (await fetch(base + '/api/v1/sessions/' + session.id + '/export')).json(); assert.equal(exported.session.id, session.id); assert.match(exported.disclosure, /not a Matrix room save/);
+  const malformed = await fetch(base + '/api/v1/sessions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{bad' }); assert.equal(malformed.status, 400);
+  const wrongType = await fetch(base + '/api/v1/sessions', { method: 'POST', body: JSON.stringify(body) }); assert.equal(wrongType.status, 415);
+  assert.equal((await fetch(base + '/api/v1/sessions?private=true')).status, 400);
+  assert.equal((await fetch(base + '/api/v1/missing')).status, 404);
+});
