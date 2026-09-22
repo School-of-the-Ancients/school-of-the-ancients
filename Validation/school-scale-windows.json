@@ -1,0 +1,151 @@
+{
+  "schemaVersion": 1,
+  "status": "passed",
+  "startedUtc": "2026-09-22T09:50:21.375712+00:00",
+  "checks": [
+    "Player has an explicit isolated validation product identity",
+    "Actual Unity supplies the White Room, without synthetic runtime exchange",
+    "School verifies readiness using the actual runtime block catalog and selection",
+    "School placement waits for owner review",
+    "Placement proposal leaves actual Unity unchanged before Apply",
+    "Owner reviews exactly one built-in block placement",
+    "School confirms placement from the actual Unity receipt and snapshot",
+    "Confirmed placement preserves lesson stage and browser artifact",
+    "Scale readiness uses the confirmed lesson block and current runtime revision",
+    "configure: School has an unapplied proposal and no claimed observation",
+    "configure: real Unity remains unchanged before owner Apply",
+    "configure: owner verifies the exact target and original-baseline transform",
+    "configure: School records confirmed runtime scale evidence",
+    "configure: School ratio matches independently calculated actual Unity scale",
+    "configure: saved evidence is tied to the real command receipt and discloses mathematical units",
+    "configure: success preserves lesson stage and independent browser artifact",
+    "Reset readiness uses the confirmed lesson block and current runtime revision",
+    "reset: School has an unapplied proposal and no claimed observation",
+    "reset: real Unity remains unchanged before owner Apply",
+    "reset: owner verifies the exact target and original-baseline transform",
+    "reset: School records confirmed runtime scale evidence",
+    "reset: School ratio matches independently calculated actual Unity scale",
+    "reset: saved evidence is tied to the real command receipt and discloses mathematical units",
+    "reset: success preserves lesson stage and independent browser artifact",
+    "Reviewed reset restores original position rotation and scale",
+    "Both reviewed experiment records remain in the School history",
+    "Durable School history excludes pairing secrets and full runtime snapshots",
+    "Restarted School preserves both original confirmed scale observations",
+    "School restart preserves the independent lesson stage and browser artifact",
+    "School restart withdraws pairing readiness and does not replay runtime work",
+    "Isolated player content cache remains byte-identical"
+  ],
+  "scope": "Actual School HTTP to Matrix HTTP to isolated headless Windows Unity",
+  "schoolBaseCommit": "1210494c29654c46597307365bdfcc2dbb80dc39",
+  "matrixCommit": "ddb2a0df065321104244f31bbb0af367e3524dec",
+  "runnerSha256": "09d41c66c8e76a21032fdbe9e34f9f3c7b9da13231bbb782ae1b98d3987b596d",
+  "pythonVersion": "3.13.14",
+  "nodeVersion": "v24.16.0",
+  "mentorProvider": "authored demo",
+  "syntheticRuntimeUsed": false,
+  "humanClickedApply": false,
+  "ownerApply": "Authenticated owner endpoint after exact proposal inspection",
+  "headsetTested": false,
+  "renderingInspected": false,
+  "physicalMeasurement": false,
+  "schoolBrowserUiTested": false,
+  "outcomes": [
+    {
+      "action": "configure",
+      "status": "succeeded",
+      "receiptCount": 1,
+      "observedScale": {
+        "x": 0.4000000059604645,
+        "y": 0.4000000059604645,
+        "z": 0.4000000059604645
+      },
+      "relativeFactors": {
+        "x": 2,
+        "y": 2,
+        "z": 2
+      },
+      "mathematicalVolumeRatio": 8,
+      "physicalMeasurement": false
+    },
+    {
+      "action": "reset",
+      "status": "succeeded",
+      "receiptCount": 1,
+      "observedScale": {
+        "x": 0.20000000298023224,
+        "y": 0.20000000298023224,
+        "z": 0.20000000298023224
+      },
+      "relativeFactors": {
+        "x": 1,
+        "y": 1,
+        "z": 1
+      },
+      "mathematicalVolumeRatio": 1,
+      "physicalMeasurement": false
+    }
+  ],
+  "player": {
+    "target": "StandaloneWindows64",
+    "exeSha256": "718444f6a718fa668da96eb0a58445b009673310e6129152a63dbf7a92b8de00",
+    "runtimeAssemblySha256": "ffa4c19dd79d44d2c18b6d74c3668b6080b2d06b9269e9df6e0878c8a2ab52bf",
+    "unityVersion": "6000.6.0f1",
+    "runtimeSourceCommit": "1af3715bcffdcef8e1eb5299b1b4b9918d39b6e9",
+    "reusedBuildEvidence": "https://github.com/School-of-the-Ancients/matrix-loading-operator/pull/35"
+  },
+  "sourceHashNormalization": "UTF-8 source bytes with CRLF converted to LF",
+  "schoolSourceSha256": {
+    "package.json": "ce7fd9bbd0b56db3f73ec8bf037c5bb1c454a00452d5907c950932cae8cfcae3",
+    "src/exhibits/prepared-exhibits.ts": "16b753ab30f0aa877cbaa89f1e3557c612019de0c42e040a201de7e334968daa",
+    "src/integrations/matrix-client.ts": "98d3a2def0e84222cc3fb999beb67fdadcf7e6cd6df2fce94c9daf24651b10d8",
+    "src/server/content.ts": "4fb831f152fa39e34f9f0eb0e2597ac4d1b74ab2f93d8748243b6df79882441e",
+    "src/server/errors.ts": "fedc9abfd2a840b83915198cedb346a06e8a0171d733b8416dfffe299ce5ffa6",
+    "src/server/http.ts": "f19aa189a5d7ccb7086e9e90c67d69e2899824f2b7ed42e38e4f8496710c2c12",
+    "src/server/main.ts": "cbc036f19d86070d5abcaaa5a0fdb328b31e045e75c924311811834c925b4f6e",
+    "src/server/matrix-bridge.ts": "f8c8ce645ba506cff0df4e90c81510358b08f23e0a8254514480e0a24febdea6",
+    "src/server/matrix-ledger.ts": "1d9eee6be3e00a9d28021ab219ec9dba3d5499ecd1fa1ff601dd0660fd3f7223",
+    "src/server/providers.ts": "07722cb10cf2831ed6f71fb2bb72d0721f9027955244e594b2467efb8f68a0e8",
+    "src/server/repository.ts": "f620bc3977ea386dc3c90dc24fb6ee1308e4fb450c98478f36db59c43af18d20",
+    "src/server/school-service.ts": "8f5eea0660559cc99637edb6365ae2abd0a02c05cbe68a5ac54a2c2ee98ec337",
+    "src/shared/contracts.ts": "d32ada5d6b2bf7f8097cf770671f2fd5cfccbd5df86cdc535eff65931ed1a040"
+  },
+  "matrixSourceSha256": {
+    "ControlService/ai_adapter.py": "98cef6a90f3b6e0e3f4ec3c6476b29a0bdc2ffd55627d9db74bdbc9c5a136977",
+    "ControlService/client_api.py": "36a0f90e6c506c66e9ee70f40f904ae86fc0e68d21c5a8e7b61ef374c3e9bf38",
+    "ControlService/codex_provider.py": "64943bd1ba609a712fa5237019a74435be4c7915cd1fb8fb9080a593ab9e0ccd",
+    "ControlService/comfy_workflow.py": "a3008d22d5e76d0de59398587ffe8b48b7499e482be0cd97afc39b9445c20c57",
+    "ControlService/content_catalog.py": "690bf51c27c60c81dbb6685106db31e8863fb1d61cd58d9fbe9047586db50e4c",
+    "ControlService/content_service.py": "ed9defe02f8e0289d1c2894c728153ea5679c9f27ab9e2211729113fc6bbc01a",
+    "ControlService/install_speech_model.py": "1d8ba3df13485c0811a78cbab231e9de5b75596a39ffd9f1ba65d5b2afd4d32a",
+    "ControlService/learning.py": "a87773a385f8c183e559b0f934a4bd1774d8369884978d21b640c86953cbb3bf",
+    "ControlService/quest_connection.py": "88bf6ef2589b3009a1a655aa78bfb11e941f30d9648526171225488e9ceaf95a",
+    "ControlService/scale_experiment.py": "c277ad22c97628cfe51673b9e9be0d7fed2a448fb8943355c0f0208268ad8ceb",
+    "ControlService/scene_capture.py": "16f0bad891952d334ced74750dbc5609743f1e4437db053e40ef366cbe2ddec1",
+    "ControlService/server.py": "d46c9160b34f18da73e146009d579387be216637092ed707079cd05d82671e45",
+    "ControlService/speech.py": "69bfe5cd430804483807b6908ff4510bdefaa0c605edca9676b7ade6fbcc4c5d"
+  },
+  "schoolProcessStarts": 2,
+  "lessonStage": "explain",
+  "lessonStageUnchanged": true,
+  "browserArtifactUnchanged": true,
+  "originalScale": {
+    "x": 0.20000000298023224,
+    "y": 0.20000000298023224,
+    "z": 0.20000000298023224
+  },
+  "cleanup": {
+    "ownedPlayerStopped": true,
+    "ownedSchoolStopped": true,
+    "ownedMatrixStopped": true,
+    "temporaryControlRemoved": true
+  },
+  "completedUtc": "2026-09-22T09:50:28.616497+00:00",
+  "schoolSourceState": "Working implementation frozen at execution; all 13 source/package fingerprints matched the publication worktree afterward",
+  "cleanupRegression": {
+    "file": "tests/test_windows_acceptance_runner.py",
+    "passed": 4,
+    "failed": 0,
+    "sha256": "9c9dd1f0b590caf54c0aa1d80cc55ea70097f7dfe50ccab4ecf08afccdf8af04"
+  },
+  "redaction": "No credentials, pairing codes, private absolute paths, full room snapshots or learner transcripts are included."
+}

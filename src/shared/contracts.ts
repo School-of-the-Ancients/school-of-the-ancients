@@ -76,13 +76,24 @@ export interface MatrixDemonstration {
   /** A bounded explanatory summary only. Apply authority belongs to the Matrix operator. */
   proposalSummary: string | null; commandIds: string[];
   receipts: Array<{ requestId: string; ok: boolean; error: string; objectId: string }>;
-  observed: { revision: number; objects: MatrixObjectEvidence[]; source: 'matrix-runtime' } | null;
+  observed: { revision: number; objects: MatrixObjectEvidence[]; source: 'matrix-runtime'; roomId?: string } | null;
   error: string | null; lastCheckedAt?: string;
   /** Explicit request failure/uncertainty is separate from the last observed Matrix outcome. */
   checkError?: string;
 }
 export interface MatrixLessonLedger {
   bindings: MatrixBindingRecord[]; activeBindingId?: string; demonstrations: MatrixDemonstration[];
+  experiments?: MatrixScaleExperiment[];
+}
+export interface MatrixScaleExperiment {
+  id: string; bindingId: string; demonstrationId: string; matrixSessionId: string; runtimeSessionId: string; correlationId: string;
+  action: 'configure' | 'reset'; factors: import('../integrations/matrix-client.ts').MatrixScaleVector; baselineExperimentId?: string;
+  proof: import('../integrations/matrix-client.ts').MatrixScaleProof;
+  expectedMatrixRevision: number; status: MatrixDemonstrationStatus; requiresApply: boolean; sequence: number;
+  createdAt: string; updatedAt: string; proposalSummary: string | null;
+  commandIds: string[]; receipts: MatrixDemonstration['receipts'];
+  observed: import('../integrations/matrix-client.ts').MatrixScaleObservation | null;
+  error: string | null; lastCheckedAt?: string; checkError?: string;
 }
 export interface MatrixBridgeResponse extends SessionResponse {
   bridge: {
@@ -90,8 +101,11 @@ export interface MatrixBridgeResponse extends SessionResponse {
     readiness: import('../exhibits/prepared-exhibits.ts').ExhibitPreflight | null;
     checkedAt: string | null; reason: string; operatorUrl: string | null;
     demonstrations: MatrixDemonstration[];
+    experiments: MatrixScaleExperiment[];
+    scale: { available: boolean; reason: string; expectedMatrixRevision?: number; demonstrationId?: string; latestExperimentId?: string };
   };
   demonstration?: MatrixDemonstration;
+  experiment?: MatrixScaleExperiment;
 }
 export interface MatrixPairRequest { requestId: string; expectedRevision: number; url: string; pairingCode: string; }
 export interface MatrixDisconnectRequest { requestId: string; expectedRevision: number; }

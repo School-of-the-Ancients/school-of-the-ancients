@@ -2,7 +2,7 @@ import { spawn } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { isAbsolute, join, resolve, sep } from 'node:path';
-import type { LessonStageContent, MatrixDemonstration, MentorTurn, ProviderReceipt, ProviderStatus, SchoolSession } from '../shared/contracts.ts';
+import type { LessonStageContent, MatrixDemonstration, MatrixScaleExperiment, MentorTurn, ProviderReceipt, ProviderStatus, SchoolSession } from '../shared/contracts.ts';
 import { requireValue, SchoolError } from './errors.ts';
 
 export interface MentorInput { session: SchoolSession; turn: MentorTurn; target: LessonStageContent; }
@@ -20,11 +20,18 @@ function matrixTeachingEvidence(session: SchoolSession) {
     latestCheckUnconfirmed: !!demo.checkError,
   });
   const lastConfirmed = demonstrations.findLast(confirmed);
+  const experiments = session.matrix?.experiments ?? [];
+  const scaleConfirmed = (item: MatrixScaleExperiment) => item.status === 'succeeded' && item.observed?.source === 'acknowledged-runtime-transform' && item.observed.physicalMeasurement === false;
+  const summarizeScale = (item: MatrixScaleExperiment) => ({ requestedAt:item.createdAt,recordUpdatedAt:item.updatedAt,action:item.action,status:item.status,latestCheckUnconfirmed:!!item.checkError,
+    requestedRelativeFactors:{...item.factors}, scaleEvidence:scaleConfirmed(item)?'acknowledged-static-transform':'not-confirmed',
+    ...(scaleConfirmed(item)?{acknowledgedRelativeFactors:{...item.observed!.relativeFactors},mathematicalVolumeRatio:item.observed!.mathematicalVolumeRatio,units:'dimensionless ratio',physicalMeasurement:false}:{}) });
+  const lastScale = experiments.findLast(scaleConfirmed);
   return {
     scope: 'Historical runtime request results only. Timestamps describe School request and record changes, not runtime observation times. Current connection and object presence have not been checked by this mentor. No camera evidence, physical measurement, browser result, or mastery is established.',
     // Keep a prior success distinct from newer failed, pending, or uncertain requests.
     latestRequests: demonstrations.slice(-4).map(summarize),
     lastConfirmedPlacement: lastConfirmed ? summarize(lastConfirmed) : null,
+    ...(experiments.length?{latestScaleRequests:experiments.slice(-4).map(summarizeScale),lastConfirmedScale:lastScale?summarizeScale(lastScale):null}:{}),
   };
 }
 export class DemoMentorProvider implements MentorProvider {

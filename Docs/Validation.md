@@ -9,7 +9,7 @@ On Windows, Node.js 24.16.0:
 - **45 tests passed, zero failed or skipped**, with `MATRIX_CHECKOUT` pointing to the isolated Matrix API checkout. This includes the opt-in cross-process test.
 - `npm run typecheck` passed.
 - `git diff --check` passed; Git reported only the checkout's normal LF/CRLF conversion notice.
-- The ordinary CI suite omits the opt-in cross-repository check unless `MATRIX_CHECKOUT` is explicitly set. It does not call a live model.
+- At this initial checkpoint the cross-repository check was optional. Current Windows/Ubuntu CI checks out a pinned Matrix revision, sets `MATRIX_CHECKOUT` and requires its scale capability; all four cross-repository cases run. CI does not call a live model.
 
 Coverage includes complete lesson progression, exact saved lesson/mentor/artifact state, restart/interruption, request deduplication, cancellation and ignored late results, global provider concurrency, revision conflicts, malformed records, failed disk replacement and recovery, provider output/tool boundaries, Host/Origin checks, escaped transcript content and browser draft recovery.
 
@@ -18,6 +18,8 @@ Independent review found and fixed two additional defects: coercible array value
 The real Matrix HTTP test starts a new ephemeral Python service and synthetic runtime. It verifies discovery, scoped pairing, current revision, no automatic Apply, owner Apply, command receipts and observed snapshot, duplicate suppression, cancellation and revocation. It uses no existing room, service token, or headset.
 
 ## Browser and live-provider checks
+
+The later scale integration passed **154 Node tests with zero skips**, TypeScript checking, and four Python cleanup regressions. Its [31 actual Windows checks](School-Scale-Windows-Validation.md) and [separate browser/live mentor checks](Scale-Browser-Validation.md) preserve their own evidence and limitations. Earlier counts below identify the historical checkpoints rather than the current suite total.
 
 The Codex in-app browser exercised the locally running candidate:
 

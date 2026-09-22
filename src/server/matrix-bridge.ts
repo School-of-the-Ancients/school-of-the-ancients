@@ -1,26 +1,28 @@
 import { randomUUID } from 'node:crypto';
 import { exhibitIdentity, GALILEO_OBSERVATION_EXHIBIT, preflightExhibit } from '../exhibits/prepared-exhibits.ts';
 import type { ExhibitPreflight } from '../exhibits/prepared-exhibits.ts';
-import { MatrixClient, MatrixClientError } from '../integrations/matrix-client.ts';
-import type { MatrixClientOptions, MatrixDiscovery, MatrixOutcome, MatrixScene } from '../integrations/matrix-client.ts';
-import type { MatrixBindingRecord, MatrixBridgeResponse, MatrixDemonstration, MatrixLessonLedger, MatrixObjectEvidence, SchoolSession } from '../shared/contracts.ts';
+import { MatrixClient, MatrixClientError, validateScaleOutcome, verifiedScaleObservation } from '../integrations/matrix-client.ts';
+import type { MatrixClientOptions, MatrixDiscovery, MatrixOutcome, MatrixScene, MatrixScaleProof, MatrixScaleTransform, MatrixScaleIntent } from '../integrations/matrix-client.ts';
+import type { MatrixBindingRecord, MatrixBridgeResponse, MatrixDemonstration, MatrixLessonLedger, MatrixObjectEvidence, MatrixScaleExperiment, SchoolSession } from '../shared/contracts.ts';
 import { fields, identifier, object, requireValue, SchoolError } from './errors.ts';
-import { localMatrixOrigin, MATRIX_ACTIVE_STATUSES, MAX_MATRIX_BINDINGS, MAX_MATRIX_DEMONSTRATIONS } from './matrix-ledger.ts';
+import { localMatrixOrigin, MATRIX_ACTIVE_STATUSES, MAX_MATRIX_BINDINGS, MAX_MATRIX_DEMONSTRATIONS, MAX_MATRIX_EXPERIMENTS, MATRIX_BLOCKING_STATUSES } from './matrix-ledger.ts';
 import { FileSchoolRepository, fingerprint, stable } from './repository.ts';
 import type { RequestReceipt, SchoolStore } from './repository.ts';
 
 const timestamp = () => new Date().toISOString();
 const RECORD_LOST = 'This School process has no credential for the original pairing. Inspect the Matrix Operator for unresolved work. Pairing again never replays or adopts an earlier request.';
 const UNKNOWN = 'Matrix did not confirm this action. Check the original request or inspect it in the Matrix Operator before creating another demonstration.';
-type BridgeKind = Extract<RequestReceipt['kind'], 'matrix_pair' | 'matrix_disconnect' | 'matrix_demonstration' | 'matrix_cancel'>;
+type BridgeKind = Extract<RequestReceipt['kind'], 'matrix_pair' | 'matrix_disconnect' | 'matrix_demonstration' | 'matrix_cancel' | 'matrix_scale' | 'matrix_scale_cancel'>;
 type Commit = (store: SchoolStore) => void;
 interface LiveBinding { client: MatrixClient; origin: string; }
-interface CachedReadiness { readiness: ExhibitPreflight; checkedAt: string; scene: MatrixScene; }
+interface CachedReadiness { readiness: ExhibitPreflight; checkedAt: string; scene: MatrixScene; discovery: MatrixDiscovery; }
 function session(store: SchoolStore, id: string): SchoolSession { identifier(id, 'session ID'); requireValue(Object.hasOwn(store.sessions, id), 404, 'not_found', 'Lesson session not found.'); return store.sessions[id]; }
 function ledger(value: SchoolSession): MatrixLessonLedger { return value.matrix ??= { bindings: [], demonstrations: [] }; }
 function touch(value: SchoolSession) { value.revision++; value.savedAt = value.updatedAt = timestamp(); }
 function revision(value: SchoolSession, expected: unknown) { requireValue(Number.isSafeInteger(expected) && expected === value.revision, 409, 'stale_revision', 'This lesson changed. Refresh it before submitting again.'); }
 function demonstration(value: SchoolSession, id: string) { identifier(id, 'demonstration ID'); const demo = value.matrix?.demonstrations.find(item => item.id === id); requireValue(demo, 404, 'not_found', 'Matrix demonstration not found in this lesson.'); return demo; }
+function experiment(value: SchoolSession, id: string) { identifier(id, 'experiment ID'); const result = value.matrix?.experiments?.find(item => item.id === id); requireValue(result, 404, 'not_found', 'Matrix scale experiment not found in this lesson.'); return result; }
+function blocked(value: SchoolSession) { return [...value.matrix?.demonstrations ?? [], ...value.matrix?.experiments ?? []].some(item => MATRIX_BLOCKING_STATUSES.has(item.status)); }
 function prior(store: SchoolStore, id: string, kind: BridgeKind, payload: unknown) {
   const value = Object.hasOwn(store.receipts, id) ? store.receipts[id] : undefined;
   if (value) requireValue(value.kind === kind && value.fingerprint === fingerprint(payload), 409, 'request_conflict', 'This request ID was already used with different data.');
@@ -47,6 +49,41 @@ function expectedPosition(placement: MatrixDemonstration['placement']) {
   return result;
 }
 
+function scaleReadiness(value:SchoolSession,cached?:CachedReadiness):{scale:MatrixBridgeResponse['bridge']['scale'];proof?:MatrixScaleProof}{
+  const unavailable=(reason:string)=>({scale:{available:false,reason}});
+  if(value.status!=='active')return unavailable('Start a new lesson to request another scale experiment.');
+  if(blocked(value))return unavailable('Review, cancel, or reconcile pending Matrix work first. If its original pairing is lost, inspect the Operator and start a new lesson.');
+  if(!cached)return unavailable('Connect and refresh Matrix to check scale readiness.');
+  const capability=cached.discovery.capabilities['experiment.block-scale.v1'];
+  if(!record(capability)||capability.version!==1||capability.kind!=='block-scale'||capability.assetId!=='block'||capability.requiresOperatorApply!==true||!Array.isArray(capability.supportedRoomModes)||!capability.supportedRoomModes.includes('white-room')||!Array.isArray(capability.actions)||!['configure','reset'].every(action=>(capability.actions as unknown[]).includes(action)))return unavailable('This Matrix service does not advertise the reviewed block-scale capability.');
+  const snapshot=cached.scene.snapshot;
+  const contexts=[snapshot.roomContext,cached.scene.runtime].filter(context=>context!==null&&context!==undefined);
+  // Legacy desktop snapshots omit both contexts; explicit contexts must all say virtual.
+  if(contexts.some(context=>!record(context)||context.mode!=='white-room'||context.state!=='ready')||snapshot.readOnly===true)return unavailable('Scale experiments need a writable virtual white room. AR scale is not supported.');
+  const demo=value.matrix?.demonstrations.findLast(item=>item.bindingId===value.matrix?.activeBindingId&&item.status==='succeeded'&&item.observed&&item.placement.mode==='direct');
+  if(!demo?.observed)return unavailable('First place and confirm a School block in this Matrix pairing.');
+  if(!demo.observed.roomId)return unavailable('This older placement record has no confirmed room identity. Place and confirm a new School block before scaling.');
+  const placed=demo.observed.objects[0];
+  const latest=value.matrix?.experiments?.findLast(item=>item.demonstrationId===demo.id&&item.bindingId===demo.bindingId&&item.status==='succeeded'&&item.observed);
+  const scene=snapshot.scene;
+  if(!record(scene)||!safeId(scene.roomId)||scene.roomId!==demo.observed.roomId||!Array.isArray(scene.objects))return unavailable('The current Matrix scene identity is unavailable.');
+  const objects=scene.objects.filter(item=>record(item)&&item.objectId===placed.objectId);
+  const item=objects[0];
+  if(objects.length!==1||!record(item)||item.assetId!=='block'||item.anchorId!==placed.anchorId||!record(item.transform))return unavailable('The confirmed School block is missing or changed. Restore it in Matrix before refreshing.');
+  const expected=latest?.proof.expectedTransform??{position:placed.position,rotation:{x:0,y:0,z:0},scale:placed.scale};
+  if(!['position','rotation','scale'].every(part=>sameVector((item.transform as Record<string,unknown>)[part],expected[part as keyof MatrixScaleTransform]))||latest&&latest.proof.baseline.roomId!==scene.roomId)return unavailable('The block changed after its confirmed result. Restore its recorded transform in Matrix, then refresh.');
+  const anchors=Array.isArray(snapshot.anchors)?snapshot.anchors.filter(a=>record(a)&&a.anchorId===placed.anchorId):[];
+  const assets=Array.isArray(snapshot.assets)?snapshot.assets.filter(a=>record(a)&&a.assetId==='block'):[];
+  if(anchors.length!==1||!record(anchors[0])||anchors[0].source==='mruk'||assets.length!==1||!record(assets[0])||assets[0].source)return unavailable('The original virtual anchor or built-in block identity is unavailable.');
+  if(item.behaviors!==undefined&&(!Array.isArray(item.behaviors)||item.behaviors.some(b=>!record(b)||b.enabled!==false)))return unavailable('Disable the block behaviors in Matrix before requesting a static scale experiment.');
+  const transform:MatrixScaleTransform={position:{...expected.position},rotation:{...expected.rotation},scale:{...expected.scale}};
+  // Capture actual finite runtime values so the Matrix proposal uses the identical baseline.
+  for(const part of ['position','rotation','scale'] as const)transform[part]={...(item.transform[part] as MatrixScaleTransform[typeof part])};
+  if(!Object.values(transform.position).every(n=>Math.abs(n)<=100)||!Object.values(transform.scale).every(n=>n>=.01&&n<=20))return unavailable('The block transform exceeds the supported range.');
+  const baseline=latest?structuredClone(latest.proof.baseline):{roomId:scene.roomId,objectId:placed.objectId,assetId:'block' as const,anchorId:placed.anchorId,transform};
+  return {scale:{available:true,reason:'Configure relative factors for this confirmed School block, then review and Apply in Matrix.',expectedMatrixRevision:cached.scene.revision,demonstrationId:demo.id,...(latest?{latestExperimentId:latest.id}:{})},proof:{action:'configure',baseline,factors:{x:1,y:1,z:1},expectedTransform:structuredClone(baseline.transform)}};
+}
+
 /** Optional local adapter. Tokens exist only inside MatrixClient instances in this process. */
 export class MatrixLessonBridge {
   private clients = new Map<string, LiveBinding>();
@@ -58,14 +95,14 @@ export class MatrixLessonBridge {
   private options: MatrixClientOptions;
   constructor(repository: FileSchoolRepository, options: MatrixClientOptions = {}) {
     this.repository = repository; this.options = options;
-    const needsRecovery = Object.values(repository.snapshot().sessions).some(value => value.matrix?.bindings.some(binding => binding.status === 'paired' || binding.status === 'pairing') || value.matrix?.demonstrations.some(demo => MATRIX_ACTIVE_STATUSES.has(demo.status)));
+    const needsRecovery = Object.values(repository.snapshot().sessions).some(value => value.matrix?.bindings.some(binding => binding.status === 'paired' || binding.status === 'pairing') || [...value.matrix?.demonstrations ?? [], ...value.matrix?.experiments ?? []].some(demo => MATRIX_ACTIVE_STATUSES.has(demo.status)));
     if (needsRecovery) repository.mutate(store => this.interrupt(store));
   }
   private interrupt(store: SchoolStore) {
     for (const value of Object.values(store.sessions)) {
       let changed = false;
       for (const binding of value.matrix?.bindings ?? []) if (binding.status === 'paired' || binding.status === 'pairing') { binding.status = binding.status === 'pairing' ? 'unconfirmed' : 'disconnected'; binding.error = RECORD_LOST; binding.updatedAt = timestamp(); changed = true; }
-      for (const demo of value.matrix?.demonstrations ?? []) if (MATRIX_ACTIVE_STATUSES.has(demo.status)) { demo.status = 'unconfirmed'; demo.requiresApply = false; demo.error = RECORD_LOST; demo.updatedAt = timestamp(); changed = true; }
+      for (const demo of [...value.matrix?.demonstrations ?? [], ...value.matrix?.experiments ?? []]) if (MATRIX_ACTIVE_STATUSES.has(demo.status)) { demo.status = 'unconfirmed'; demo.requiresApply = false; demo.error = RECORD_LOST; demo.updatedAt = timestamp(); changed = true; }
       if (changed) touch(value);
     }
   }
@@ -80,7 +117,7 @@ export class MatrixLessonBridge {
     catch { this.pendingCommits.set(sessionId, change); throw new SchoolError(503, 'persistence_failed', 'Matrix may have processed the action, but School cannot save its outcome. Repair local storage and check this request; it will not be replayed.'); }
   }
   private enter(sessionId: string) { this.flush(sessionId); requireValue(!this.busy.has(sessionId), 409, 'bridge_busy', 'Another Matrix operation is still being checked for this lesson.'); this.busy.add(sessionId); }
-  private view(sessionId: string, demoId?: string): MatrixBridgeResponse {
+  private view(sessionId: string, demoId?: string, experimentId?: string): MatrixBridgeResponse {
     const value = session(this.repository.snapshot(), sessionId);
     const binding = value.matrix?.bindings.find(item => item.id === value.matrix?.activeBindingId) ?? null;
     const connected = !!binding && binding.status === 'paired' && this.clients.has(binding.id);
@@ -89,8 +126,9 @@ export class MatrixLessonBridge {
       binding, connected, readiness: cached?.readiness ?? null, checkedAt: cached?.checkedAt ?? null,
       reason: cached ? (cached.readiness.canLaunch ? 'The prepared block is available at the current Matrix selection. The owner must review and Apply each proposal.' : 'Matrix needs attention before this demonstration can be requested.') : binding?.error ?? (connected ? 'Refresh readiness before requesting a demonstration.' : 'Matrix is optional. Connect with a one-use code from the local Matrix Operator.'),
       operatorUrl: binding ? binding.origin + '/clients' : null,
-      demonstrations: value.matrix?.demonstrations ?? [],
-    }, ...(demoId ? { demonstration: demonstration(value, demoId) } : {}) };
+      demonstrations: value.matrix?.demonstrations ?? [], experiments: value.matrix?.experiments ?? [],
+      scale: scaleReadiness(value, cached).scale,
+    }, ...(demoId ? { demonstration: demonstration(value, demoId) } : {}), ...(experimentId ? { experiment: experiment(value, experimentId) } : {}) };
   }
   private async readReady(sessionId: string, binding: MatrixBindingRecord): Promise<CachedReadiness> {
     const live = this.clients.get(binding.id); requireValue(live, 409, 'matrix_disconnected', RECORD_LOST);
@@ -100,7 +138,7 @@ export class MatrixLessonBridge {
     const discovery = (results[0] as PromiseFulfilledResult<MatrixDiscovery>).value;
     const scene = (results[1] as PromiseFulfilledResult<MatrixScene>).value;
     const value = session(this.repository.snapshot(), sessionId);
-    const result = { readiness: preflightExhibit(GALILEO_OBSERVATION_EXHIBIT, { target: 'matrix', lesson: value.lesson, mentor: value.mentor, discovery, scene }), checkedAt: timestamp(), scene };
+    const result = { readiness: preflightExhibit(GALILEO_OBSERVATION_EXHIBIT, { target: 'matrix', lesson: value.lesson, mentor: value.mentor, discovery, scene }), checkedAt: timestamp(), scene, discovery };
     this.readiness.set(binding.id, result); return result;
   }
   async status(sessionId: string): Promise<MatrixBridgeResponse> {
@@ -159,7 +197,7 @@ export class MatrixLessonBridge {
           bindingIds.push(binding.id);
           if (binding.status === 'paired' || binding.status === 'pairing') { binding.status = 'disconnected'; binding.updatedAt = timestamp(); binding.error = 'Disconnected locally. This does not cancel or revoke Matrix work; inspect the Matrix Operator for pending proposals.'; }
         }
-        for (const demo of state.demonstrations) if (MATRIX_ACTIVE_STATUSES.has(demo.status)) { demo.status = 'unconfirmed'; demo.requiresApply = false; demo.error = RECORD_LOST; demo.updatedAt = timestamp(); }
+        for (const demo of [...state.demonstrations, ...state.experiments ?? []]) if (MATRIX_ACTIVE_STATUSES.has(demo.status)) { demo.status = 'unconfirmed'; demo.requiresApply = false; demo.error = RECORD_LOST; demo.updatedAt = timestamp(); }
         touch(value); remember(store, requestId, 'matrix_disconnect', payload, sessionId);
       });
       for (const bindingId of bindingIds) { this.clients.delete(bindingId); this.readiness.delete(bindingId); }
@@ -196,7 +234,7 @@ export class MatrixLessonBridge {
       this.repository.mutate(store => {
         const value = session(store, sessionId); revision(value, body.expectedRevision); const state = ledger(value);
         requireValue(state.demonstrations.length < MAX_MATRIX_DEMONSTRATIONS, 409, 'bridge_capacity', 'This lesson has reached its demonstration limit. Existing records are preserved.');
-        requireValue(!state.demonstrations.some(item => item.bindingId === binding.id && MATRIX_ACTIVE_STATUSES.has(item.status)), 409, 'demonstration_pending', 'Review, cancel, or reconcile the current demonstration before requesting another.');
+        requireValue(!blocked(value), 409, 'demonstration_pending', 'Review, cancel, or reconcile all pending Matrix work first. If the original pairing is lost, inspect the Operator and start a new lesson.');
         const at = timestamp(); state.demonstrations.push({ id: requestId, bindingId: binding.id, matrixSessionId: binding.matrixSessionId!, runtimeSessionId: binding.runtimeSessionId!, correlationId: requestId,
           exhibit: { id: GALILEO_OBSERVATION_EXHIBIT.id, version: GALILEO_OBSERVATION_EXHIBIT.version, digest: fingerprint(GALILEO_OBSERVATION_EXHIBIT), identity: exhibitIdentity(GALILEO_OBSERVATION_EXHIBIT) }, placement: structuredClone(placement),
           requestText: 'Place a block here.', expectedMatrixRevision: ready.scene.revision, status: 'submitting', createdAt: at, updatedAt: at, sequence: 0, requiresApply: false, proposalSummary: null, commandIds: [], receipts: [], observed: null, error: null });
@@ -274,7 +312,8 @@ export class MatrixLessonBridge {
       }
     }
     // This slice can evidence exactly one acknowledged block, never arbitrary snapshots or physical measurements.
-    const observed = outcome.observed && outcome.observed.revision >= original.expectedMatrixRevision && objects.length === 1 && outcome.commandIds.length === 1 && outcome.receipts.length === 1 && outcome.receipts[0].ok ? { revision: outcome.observed.revision, objects, source: 'matrix-runtime' as const } : null;
+    const observedRoom = outcome.observed && 'snapshot' in outcome.observed && record(outcome.observed.snapshot.scene) ? outcome.observed.snapshot.scene.roomId : undefined;
+    const observed = outcome.observed && outcome.observed.revision >= original.expectedMatrixRevision && objects.length === 1 && outcome.commandIds.length === 1 && outcome.receipts.length === 1 && outcome.receipts[0].ok ? { revision: outcome.observed.revision, objects, source: 'matrix-runtime' as const, ...(safeId(observedRoom) ? { roomId: observedRoom } : {}) } : null;
     const tooBroad = outcome.commandIds.length > 1 || outcome.receipts.length > 1 || outcome.commandIds.some(id => !safeId(id)) || outcome.receipts.some(ack => !safeId(ack.requestId) || (ack.objectId !== '' && !safeId(ack.objectId)));
     if (tooBroad) { this.recordCheckFailure(sessionId, demoId, new MatrixClientError('invalid_response', 'Unbounded outcome.')); return; }
     const recipeMismatch = ['ready','queued','running','succeeded'].includes(outcome.status) && !boundedProposal;
@@ -303,10 +342,101 @@ export class MatrixLessonBridge {
       }
     });
   }
+  async requestScale(sessionId: string, raw: unknown): Promise<MatrixBridgeResponse> {
+    const body = object(raw); fields(body, ['requestId','expectedRevision','bindingId','expectedMatrixRevision','demonstrationId','action','factors','baselineExperimentId'], ['requestId','expectedRevision','bindingId','expectedMatrixRevision','demonstrationId','action']);
+    const requestId = identifier(body.requestId, 'request ID'); identifier(body.bindingId,'binding ID'); identifier(body.demonstrationId,'demonstration ID');
+    requireValue(requestId.length <= 96 && Number.isSafeInteger(body.expectedMatrixRevision) && Number(body.expectedMatrixRevision) >= 0,400,'invalid_request','Use a bounded request ID and current Matrix revision.');
+    requireValue(body.action === 'configure' || body.action === 'reset',400,'invalid_request','Choose configure or reset.');
+    if (body.baselineExperimentId !== undefined) identifier(body.baselineExperimentId,'baseline experiment ID');
+    if (body.action === 'configure') requireValue(vector(body.factors) && Object.keys(body.factors).length === 3 && Object.values(body.factors).every(n => n >= .25 && n <= 4),400,'invalid_request','Use X, Y and Z factors between 0.25 and 4.');
+    else requireValue(body.factors === undefined && body.baselineExperimentId !== undefined,400,'invalid_request','Reset needs a confirmed baseline experiment and no factors.');
+    const payload = {sessionId,...body}; this.flush(sessionId);
+    if (prior(this.repository.snapshot(),requestId,'matrix_scale',payload)) return this.view(sessionId,undefined,requestId);
+    this.enter(sessionId);
+    try {
+      const initial = this.view(sessionId); revision(initial.session,body.expectedRevision);
+      const binding = initial.bridge.binding;
+      requireValue(binding && initial.bridge.connected && binding.id === body.bindingId,409,'matrix_disconnected',RECORD_LOST);
+      requireValue(initial.session.status === 'active',409,'lesson_complete','Start a new lesson to request more scene work.');
+      requireValue(!blocked(initial.session),409,'demonstration_pending','Reconcile pending or unconfirmed Matrix work before requesting another change. If its pairing is lost, inspect the Operator and start a new lesson.');
+      let ready: CachedReadiness; try { ready = await this.readReady(sessionId,binding); } catch(error) { throw new SchoolError(409,'matrix_not_ready',safeFailure(error)); }
+      requireValue(ready.scene.revision === body.expectedMatrixRevision,409,'matrix_revision_changed','The Matrix scene changed. Refresh and review it before requesting a scale change.');
+      const available = scaleReadiness(session(this.repository.snapshot(),sessionId),ready);
+      requireValue(available.scale.available && available.proof && available.scale.demonstrationId === body.demonstrationId,409,'matrix_not_ready',available.scale.reason);
+      const latestId = available.scale.latestExperimentId;
+      requireValue(body.baselineExperimentId === undefined || body.baselineExperimentId === latestId,409,'stale_baseline','Use the latest confirmed experiment for this demonstration.');
+      requireValue(body.action !== 'reset' || latestId !== undefined,409,'stale_baseline','Reset requires a confirmed scale experiment.');
+      const proof: MatrixScaleProof = structuredClone(available.proof);
+      proof.action = body.action; proof.factors = body.action === 'reset' ? {x:1,y:1,z:1} : structuredClone(body.factors as MatrixScaleProof['factors']);
+      proof.expectedTransform = structuredClone(proof.baseline.transform);
+      for (const axis of ['x','y','z'] as const) proof.expectedTransform.scale[axis] *= proof.factors[axis];
+      requireValue(Object.values(proof.expectedTransform.scale).every(n => n>=.01 && n<=20),400,'invalid_request','The requested scale exceeds the supported transform range.');
+      this.repository.mutate(store => {
+        const value = session(store,sessionId); revision(value,body.expectedRevision); requireValue(!blocked(value),409,'demonstration_pending','Reconcile existing Matrix work first.');
+        const state=ledger(value); state.experiments ??= []; requireValue(state.experiments.length < MAX_MATRIX_EXPERIMENTS,409,'bridge_capacity','This lesson reached its Matrix experiment limit. Existing records are preserved.');
+        const at=timestamp(); state.experiments.push({id:requestId,bindingId:binding.id,demonstrationId:body.demonstrationId as string,matrixSessionId:binding.matrixSessionId!,runtimeSessionId:binding.runtimeSessionId!,correlationId:requestId,action:proof.action,factors:structuredClone(proof.factors),...(latestId?{baselineExperimentId:latestId}:{}),proof,expectedMatrixRevision:ready.scene.revision,status:'submitting',requiresApply:false,sequence:0,createdAt:at,updatedAt:at,proposalSummary:null,commandIds:[],receipts:[],observed:null,error:null});
+        touch(value); remember(store,requestId,'matrix_scale',payload,sessionId);
+      });
+      this.readiness.delete(binding.id);
+      const intent: MatrixScaleIntent = proof.action === 'reset' ? {kind:'block-scale',version:1,action:'reset',objectId:proof.baseline.objectId,baselineRequestId:latestId!} : {kind:'block-scale',version:1,action:'configure',objectId:proof.baseline.objectId,factors:proof.factors,...(latestId?{baselineRequestId:latestId}:{})};
+      let outcome: MatrixOutcome;
+      try { outcome=await this.clients.get(binding.id)!.client.proposeScale(intent,{requestId,correlationId:requestId,revision:ready.scene.revision}); }
+      catch(error) { this.commit(sessionId,store => {const value=session(store,sessionId), item=experiment(value,requestId); item.status=error instanceof MatrixClientError && !error.outcomeUnknown?'error':'unconfirmed'; item.error=safeFailure(error); item.updatedAt=timestamp(); touch(value);}); return this.view(sessionId,undefined,requestId); }
+      this.recordScaleOutcome(sessionId,requestId,outcome); return this.view(sessionId,undefined,requestId);
+    } finally {this.busy.delete(sessionId);}
+  }
+  async pollScale(sessionId:string, id:string):Promise<MatrixBridgeResponse> {
+    this.flush(sessionId); const current=this.view(sessionId,undefined,id), item=current.experiment!;
+    if(this.busy.has(sessionId)) return current;
+    const live=this.clients.get(item.bindingId); if(!live){item.checkError=RECORD_LOST;return current;}
+    this.enter(sessionId);
+    try {let outcome:MatrixOutcome; try{outcome=await live.client.outcome(id);}catch(error){this.scaleCheckFailure(sessionId,id,error);return this.view(sessionId,undefined,id);}
+      this.recordScaleOutcome(sessionId,id,outcome);return this.view(sessionId,undefined,id);
+    }finally{this.busy.delete(sessionId);}
+  }
+  async cancelScale(sessionId:string,id:string,raw:unknown):Promise<MatrixBridgeResponse>{
+    const body=object(raw);fields(body,['requestId'],['requestId']);const requestId=identifier(body.requestId,'request ID'),payload={sessionId,id,...body};
+    this.flush(sessionId);if(prior(this.repository.snapshot(),requestId,'matrix_scale_cancel',payload))return this.view(sessionId,undefined,id);
+    this.enter(sessionId);
+    try{const item=experiment(session(this.repository.snapshot(),sessionId),id),live=this.clients.get(item.bindingId);requireValue(live,409,'matrix_disconnected',RECORD_LOST);
+      this.repository.mutate(store=>remember(store,requestId,'matrix_scale_cancel',payload,sessionId));
+      let outcome:MatrixOutcome;try{outcome=await live.client.cancel(id);}catch(error){this.scaleCheckFailure(sessionId,id,error,true);return this.view(sessionId,undefined,id);}
+      this.recordScaleOutcome(sessionId,id,outcome);return this.view(sessionId,undefined,id);
+    }finally{this.busy.delete(sessionId);}
+  }
+  private scaleCheckFailure(sessionId:string,id:string,error:unknown,mutation=false){
+    this.commit(sessionId,store=>{const value=session(store,sessionId),item=experiment(value,id);
+      if(item.status!=='succeeded' && (item.status==='submitting'||mutation&&!(error instanceof MatrixClientError&&!error.outcomeUnknown)||error instanceof MatrixClientError&&error.code==='invalid_response')){item.status='unconfirmed';item.requiresApply=false;}
+      item.checkError=safeFailure(error);item.lastCheckedAt=item.updatedAt=timestamp();touch(value);
+    });
+  }
+  private recordScaleOutcome(sessionId:string,id:string,outcome:MatrixOutcome){
+    const original=experiment(session(this.repository.snapshot(),sessionId),id);
+    try{
+      requireValue(outcome.requestId===original.id&&outcome.correlationId===original.correlationId&&outcome.sessionId===original.matrixSessionId&&outcome.runtimeSessionId===original.runtimeSessionId&&outcome.sequence>=original.sequence,502,'invalid_response','Mismatched experiment identity.');
+      requireValue(outcome.commandIds.length<=1&&outcome.receipts.length<=1&&outcome.commandIds.every(safeId)&&outcome.receipts.every(ack=>safeId(ack.requestId)&&(ack.objectId===''||safeId(ack.objectId))),502,'invalid_response','Unbounded experiment receipts.');
+      requireValue((original.commandIds.length===0||stable(original.commandIds)===stable(outcome.commandIds))&&original.receipts.every(known=>outcome.receipts.some(next=>next.requestId===known.requestId&&next.ok===known.ok&&next.objectId===known.objectId)),502,'invalid_response','Changed experiment receipts.');
+      validateScaleOutcome(outcome,original.proof);
+      const observed=verifiedScaleObservation(outcome,original.proof);
+      requireValue(!observed||observed.revision>=original.expectedMatrixRevision,502,'invalid_response','Older experiment observation.');
+      const unverifiable=outcome.status==='succeeded'&&!observed;
+      const update={status:unverifiable?'unconfirmed' as const:outcome.status,sequence:outcome.sequence,requiresApply:unverifiable?false:outcome.requiresApply,
+        proposalSummary:outcome.proposal?(original.action==='reset'?'Restore this block to its captured baseline. Review and Apply in the Matrix Operator.':`Scale this block from its captured baseline by X=${original.factors.x}, Y=${original.factors.y}, Z=${original.factors.z}. Review and Apply in the Matrix Operator.`):null,
+        commandIds:[...outcome.commandIds],receipts:outcome.receipts.map(ack=>({...ack,error:ack.error?'The Matrix runtime reported a command error.':''})),observed,
+        error:unverifiable?'Matrix reported completion without verified scale observation. Inspect the original request; no mathematical ratio is confirmed.':outcome.error?'Matrix reported an incomplete or rejected scale request. Inspect the Operator for details.':null};
+      requireValue(!original.observed||stable(original.observed)===stable(observed)&&update.status==='succeeded',502,'invalid_response','Changed confirmed scale evidence.');
+      requireValue(original.sequence===0||outcome.sequence!==original.sequence||['submitting','unconfirmed'].includes(original.status)||(original.status===update.status&&stable(original.receipts)===stable(update.receipts)&&stable(original.commandIds)===stable(update.commandIds)),502,'invalid_response','Conflicting experiment sequence.');
+      this.commit(sessionId,store=>{const value=session(store,sessionId),item=experiment(value,id), first=!item.observed&&!!observed;
+        const changed=Object.entries(update).some(([key,v])=>stable((item as unknown as Record<string,unknown>)[key])!==stable(v))||item.checkError!==undefined;
+        Object.assign(item,update);delete item.checkError;item.lastCheckedAt=timestamp();
+        if(changed){item.updatedAt=timestamp();touch(value);if(first)value.messages.push({id:randomUUID(),role:'system',stage:value.stage,createdAt:timestamp(),text:`Matrix acknowledged a static block scale change with mathematical volume ratio ${Number(observed!.mathematicalVolumeRatio.toPrecision(8))} relative to the captured baseline. This is historical virtual-transform evidence, not physical measurement, camera evidence, browser activity or mastery. The lesson stage is unchanged.`});}
+      });
+    }catch(error){if(error instanceof SchoolError&&error.code==='persistence_failed')throw error;this.scaleCheckFailure(sessionId,id,new MatrixClientError('invalid_response','Scale evidence mismatch.'));}
+  }
   close() {
     if (this.closed) return;
     try {
-      if (Object.values(this.repository.snapshot().sessions).some(value => value.matrix?.bindings.some(binding => ['paired','pairing'].includes(binding.status)) || value.matrix?.demonstrations.some(demo => MATRIX_ACTIVE_STATUSES.has(demo.status)))) this.repository.mutate(store => this.interrupt(store));
+      if (Object.values(this.repository.snapshot().sessions).some(value => value.matrix?.bindings.some(binding => ['paired','pairing'].includes(binding.status)) || [...value.matrix?.demonstrations ?? [], ...value.matrix?.experiments ?? []].some(demo => MATRIX_ACTIVE_STATUSES.has(demo.status)))) this.repository.mutate(store => this.interrupt(store));
     }
     finally { this.closed = true; this.clients.clear(); this.readiness.clear(); this.pendingCommits.clear(); }
   }

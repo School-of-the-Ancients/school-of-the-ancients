@@ -1,0 +1,78 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-09-22",
+  "scope": "Manual browser walkthrough with a synthetic Matrix runtime and two live Codex mentor turns. Separate from actual Windows Unity acceptance.",
+  "matrixSourceCommit": "ddb2a0df065321104244f31bbb0af367e3524dec",
+  "participants": "Agent-authored fictional QA prompts only; no learner or classroom records.",
+  "checks": [
+    "Paired through the normal Operator and School UI.",
+    "Requested one School block and separately reviewed and Applied it in Matrix.",
+    "Requested double every side, reviewed one set_transform command, and Applied it.",
+    "School displayed a confirmed mathematical ratio of 8 from the synthetic acknowledgement.",
+    "Requested reset, reviewed and Applied the separate proposal, and School displayed a confirmed ratio of 1.",
+    "Preset and reset controls became available after acknowledged outcomes.",
+    "Browser dimensions stayed 1 by 1 by 1 and asking questions did not advance the lesson.",
+    "First mentor response distinguished geometric ratio, browser dimensions, physical measurements and historical presence.",
+    "Second mentor response distinguished latest reset ratio 1 from historical ratio 8 and original-baseline repeat ratio 8 from compounded ratio 64."
+  ],
+  "finalLessonStage": "explain",
+  "finalBrowserArtifact": {
+    "type": "scale",
+    "dimensions": [
+      1,
+      1,
+      1
+    ],
+    "baseline": [
+      1,
+      1,
+      1
+    ],
+    "volume": 1,
+    "volumeRatio": 1,
+    "units": "units",
+    "observedAt": "2026-09-22T09:40:41.756Z",
+    "source": "browser-deterministic"
+  },
+  "turns": [
+    {
+      "kind": "question",
+      "input": "Matrix confirmed an 8\u00d7 ratio after doubling every side. Why is it not 2\u00d7? Did that also change our browser experiment or measure real volume? Is the block guaranteed to still be there?",
+      "stage": "explain",
+      "status": "completed",
+      "createdAt": "2026-09-22T09:43:57.212Z",
+      "completedAt": "2026-09-22T09:44:05.997Z",
+      "output": "Volume multiplies three side lengths. Doubling width, height, and depth gives 2 \u00d7 2 \u00d7 2 = 8, so the mathematical volume ratio is 8\u00d7. It would be 2\u00d7 only if one dimension doubled while the other two stayed fixed.\n\nThe recorded Matrix result acknowledges a virtual scale transform and its calculated ratio. It did not change the browser experiment or measure a physical object\u2019s real volume. The browser record still shows 1 \u00d7 1 \u00d7 1, volume 1.\n\nThe block was previously acknowledged as placed, but its current presence was not checked, so I cannot guarantee it is still there.\n\nFor our starting 1 \u00d7 1 \u00d7 1 browser block, \u201ctwice as big\u201d is therefore ambiguous: it could mean twice one side length or twice the volume.",
+      "receipt": {
+        "mode": "codex-cli",
+        "completedTurn": true,
+        "toolCallCount": 0,
+        "requestedModel": "gpt-5.6-sol"
+      },
+      "actualServedModel": null
+    },
+    {
+      "kind": "question",
+      "input": "The reset was acknowledged. Is the latest recorded Matrix ratio still 8, or is it 1? If I choose double every side again, should the original-baseline ratio be 8 or 64? Keep our browser experiment separate.",
+      "stage": "explain",
+      "status": "completed",
+      "createdAt": "2026-09-22T09:46:31.580Z",
+      "completedAt": "2026-09-22T09:46:39.872Z",
+      "output": "The latest recorded Matrix ratio is 1, because the most recent acknowledged scale action was the reset to baseline. The earlier ratio of 8 remains historical evidence, but it is not the latest value.\n\nIf \u201cdouble every side again\u201d means setting each side to 2 times the original captured baseline, the original-baseline volume ratio should be 2 \u00d7 2 \u00d7 2 = 8, not 64. A ratio of 64 would result only if each side became 4 times the original baseline\u2014for example, by doubling the already-doubled dimensions without resetting.\n\nSeparately, our browser experiment remains recorded at 1 \u00d7 1 \u00d7 1, with volume 1 and ratio 1. The Matrix records do not change it or establish physical measurement.",
+      "receipt": {
+        "mode": "codex-cli",
+        "completedTurn": true,
+        "toolCallCount": 0,
+        "requestedModel": "gpt-5.6-sol"
+      },
+      "actualServedModel": null
+    }
+  ],
+  "limitations": [
+    "The browser fixture synthesized runtime acknowledgements; this does not establish Unity or Quest execution.",
+    "Actual Windows Unity execution is recorded independently in school-scale-windows.json.",
+    "Two successful mentor turns are targeted examples, not a broad reliability or learning-outcome evaluation.",
+    "The CLI receipt reports the requested model but not the actual served model.",
+    "No microphone, physical-room camera, AR scaling, avatar or learning assessment was exercised."
+  ]
+}
