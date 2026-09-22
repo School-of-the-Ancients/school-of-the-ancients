@@ -56,11 +56,21 @@ Review and regression work includes older connection links pointing to their ori
 
 Real-player preparation exposed the built-in asset's actual ID, `block` (Terracotta block), rather than the earlier synthetic `cube` fixture. The package now requires that exact identity and uses the parser's exact-ID tier. A persisted, allowlisted historical evidence summary also remains in mentor context after the original placement note falls outside the recent-message window; it does not claim current presence or current connectivity.
 
+## Optional local mentor read-aloud
+
+This increment adds manual playback, replay and stop for the latest persisted mentor reply using a browser-reported local English voice. Text remains available without speech support. It adds no microphone input or historical voice imitation. Server capability `mentor.voice.v1` remains unavailable; the browser controls expose their own narrower playback availability.
+
+On September 22, 2026, the targeted run of `node --test tests/mentor-speech.test.js tests/client/app-interactions.test.js` passed **29 tests, zero failed or skipped**: 16 adapter checks and 13 application checks, including four new speech interactions. Coverage includes local-only voice selection, missing support, asynchronous voice availability, exact saved text, cancellation, ignored stale playback callbacks, and lesson/context transitions. These are simulated speech API events, not recorded audible output. The subsequent full suite passed **119 tests, zero failed or skipped**, with `MATRIX_CHECKOUT` pointing to the isolated Matrix scale-capability checkout; type checking also passed. Earlier counts above describe their respective checkpoints.
+
+The actual Codex in-app browser separately detected **Microsoft David, English (United States)** as a local device voice. Manual **Listen to latest reply** changed the UI from **Starting audio…** to **Reading the latest reply**, driven by the real browser's utterance `onstart` event. **Stop audio** returned it to **Ready when you are.** Manual replay read the same current caption, and no automatic playback was observed.
+
+This verifies browser voice enumeration and the start/stop/replay lifecycle. No human listening assessment was performed: sound audibility, intelligibility, pronunciation and comfort remain pending, as do screen-reader compatibility, broader browser/device coverage, hosted behavior and Quest acceptance. See [mentor read-aloud](Mentor-Speech.md) for the controls and browser API references.
+
 ## Remaining acceptance
 
 - User comparison of this concrete candidate with beta's preferred experience, before expanding a remake (roadmap #2B).
 - Real Quest placement and teacher/student walkthrough of the optional bridge; hosted transport and durable Matrix events/checkpoints.
-- Optional speech/captions, additional visual adapters, sourced historical teaching evaluation and more prepared lessons.
+- Browser/device speech acceptance, voice input and broader voice adapters, additional visual adapters, sourced historical teaching evaluation and more prepared lessons.
 - Immutable checkpoints/import, retention and multi-user/hosted deployment design. Current export is a record, not an import/restore implementation.
 - A full beta/v2 runtime comparison remains pending; the reuse audit's repository inspection must not be described as side-by-side deployed acceptance.
 

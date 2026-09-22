@@ -19,6 +19,8 @@ Open **http://127.0.0.1:8792/**. Choose Galileo and begin **A small change. A bi
 
 Your transcript, exact lesson version, recorded experiment and progress save on this PC. Reload or return to the academy to resume. **Export** downloads a JSON learning record. Completion records participation, not assessed mastery. Nothing needs a headset, microphone, Unity, or Matrix connection.
 
+For optional read-aloud, choose **Listen to latest reply** beneath the conversation. It uses a local English device voice when the browser provides one; **Stop audio** ends playback. Read the [mentor audio guide](Docs/Mentor-Speech.md) for availability and controls. Typed conversation remains available throughout.
+
 ### Use a real mentor response
 
 The optional Codex adapter uses an existing local **ChatGPT sign-in**. Configure a native Codex executable and a model available to that account, then start the service:
@@ -44,7 +46,8 @@ Live mode sends the selected lesson, recent conversation and recorded browser ex
 | Interactive visual | Deterministic width × height × depth illustration; recorded dimensions and volume |
 | Records | Atomic local saves, resume, export, cancellation, interrupted-turn recovery and request deduplication |
 | Matrix integration | Optional pairing panel, prepared block request, Operator review, and saved runtime evidence |
-| Voice and headset | Planned optional adapters; unavailable in this candidate |
+| Mentor read-aloud | Manual playback and stop for the latest saved reply, using a browser-reported local English voice |
+| Voice input and headset teaching | Planned optional adapters; unavailable in this candidate |
 
 Browser dimensions are simulated units. The illustration is not a Unity scene, measured room, or physical observation. No hosted deployment, multi-user authentication, durable Matrix event replay, or headset acceptance is claimed.
 
@@ -66,6 +69,7 @@ flowchart LR
 School owns mentors, teaching and learning records. Matrix owns scene/content execution and its observations. Open **Matrix connection** inside a lesson to pair with an updated local Matrix service. Requesting a block creates a proposal; approve it in Matrix's Operator before it runs. School records the reported placement without advancing the lesson or treating it as a physical measurement. Neither product imports the other's internal application model.
 
 - [User walkthrough](Docs/User-Guide.md)
+- [Optional mentor read-aloud](Docs/Mentor-Speech.md)
 - [Optional Matrix connection](Docs/Matrix-Bridge.md)
 - [Prepared exhibit packages and readiness](Docs/Prepared-Exhibits.md)
 - [Development, configuration and tests](Docs/Development.md)

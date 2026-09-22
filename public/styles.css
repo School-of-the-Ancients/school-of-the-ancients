@@ -2294,3 +2294,20 @@ a:hover {
   .matrix-pair-fields button { justify-self: start; }
   .matrix-actions { gap: 14px; }
 }
+.mentor-speech {
+  padding: 12px 24px;
+  border-top: 1px solid var(--border, #dce2dc);
+  background: #f5f7f2;
+}
+.mentor-speech-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.mentor-speech-actions [role="status"], .mentor-speech small {
+  font-size: .75rem;
+  color: #53625a;
+  line-height: 1.5;
+}
+.mentor-speech small { display: block; margin-top: 4px; }
