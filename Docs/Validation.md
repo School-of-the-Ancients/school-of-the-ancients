@@ -68,11 +68,19 @@ The actual Codex in-app browser separately detected **Microsoft David, English (
 
 This verifies browser voice enumeration and the start/stop/replay lifecycle. No human listening assessment was performed: sound audibility, intelligibility, pronunciation and comfort remain pending, as do screen-reader compatibility, broader browser/device coverage, hosted behavior and Quest acceptance. See [mentor read-aloud](Mentor-Speech.md) for the controls and browser API references.
 
+## Optional browser speech input
+
+On September 23, 2026, the browser dictation adapter and composer fixture passed focused tests: final-only draft insertion, no automatic submit, learner correction before the single text turn, denial/unsupported fallback, context stop and stale callback rejection. The final local run passed 156 tests and skipped four optional cross-repository Matrix HTTP cases because MATRIX_CHECKOUT was not set; type checking passed. These are simulated recognition events, not human microphone or recognition-accuracy evidence. Browser support varies and recognition may use a remote browser service. See [speech input](Speech-Input.md).
+
+## Replaceable lesson visual
+
+The browser visual adapter renders the same saved scale dimensions as an isometric diagram or data table and supports a hidden visual mode. Focused tests verify an alternate renderer receives the same dimensions, disabling the visual leaves lesson controls/evidence visible, and changing modes sends no API request. A local headless Chrome walkthrough opened the authored-demo lesson, displayed Dictate draft, switched Diagram → Data table → Hide visual, and confirmed the metrics and experiment control remained visible. It used an isolated data directory and no microphone. This is a browser mathematical illustration; no generated factual image or Matrix observation is claimed. See [visual adapter](Visual-Adapter.md).
+
 ## Remaining acceptance
 
 - User comparison of this concrete candidate with beta's preferred experience, before expanding a remake (roadmap #2B).
 - Real Quest placement and teacher/student walkthrough of the optional bridge; hosted transport and durable Matrix events/checkpoints.
-- Browser/device speech acceptance, voice input and broader voice adapters, additional visual adapters, sourced historical teaching evaluation and more prepared lessons.
+- Browser/device speech acceptance, broader voice adapters, additional visual adapters, sourced historical teaching evaluation and more prepared lessons.
 - Immutable checkpoints/import, retention and multi-user/hosted deployment design. Current export is a record, not an import/restore implementation.
 - A full beta/v2 runtime comparison remains pending; the reuse audit's repository inspection must not be described as side-by-side deployed acceptance.
 

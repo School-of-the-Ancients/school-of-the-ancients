@@ -20,7 +20,7 @@ Decision status: provisional implementation for roadmap #2A and #13. User compar
 
 The lesson engine owns the next step. A model receives the target stage and can explain it, but cannot advance the stored session, execute tools, grant mastery, or invent an observation. A question leaves the stage unchanged. A successful answer advances according to the authored lesson. The initial model response is text, not arbitrary HTML or downloadable executable behavior.
 
-The first artifact is intentionally a typed scale illustration. Future artifact adapters need their own validated type, provenance, loading/error/history states and capability acceptance; general interactive HTML and generated-image modules are not implemented by this one visual. Optional browser-local text-to-speech reads saved replies; speech input remains absent. The canonical session has no audio-provider dependency.
+The first artifact is intentionally a typed scale observation. A separate browser visual adapter can render its diagram, a data table, or no visual while preserving the same saved artifact and lesson flow. Future generated-artifact adapters need their own validated type, provenance, loading/error/history states and capability acceptance; general interactive HTML and image generation are not implemented by this adapter. Optional browser-local text-to-speech reads saved replies. A separate browser speech-input adapter fills only an editable draft after explicit permission; it cannot submit a turn or own lesson state. Recognition may be processed remotely by the browser. The canonical session has no audio-provider dependency.
 
 ## Persistence and concurrency
 

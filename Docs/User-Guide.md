@@ -18,9 +18,17 @@ Choose **Listen to latest reply** below the transcript to hear the latest saved 
 
 Starting another turn, changing lessons, returning to the academy or hiding the page stops audio. Replies never play automatically. If audio is unavailable or fails, the transcript and typed lesson remain usable. **Stop response** still cancels a pending mentor answer; it is separate from **Stop audio**. See [mentor read-aloud](Mentor-Speech.md) for details.
 
+## Dictate a draft (optional)
+
+In a browser that offers speech recognition, choose **Dictate draft**, speak one response, and review the text inserted in the composer. Correct it before choosing **Ask a question** or **Respond to the lesson** and sending. **Stop dictation** cancels listening. School never sends a recognized phrase automatically. Your browser may process microphone audio remotely; read its permission and privacy settings. If dictation is unavailable or denied, type as usual. See [speech input](Speech-Input.md).
+
 ## What the workbench means
 
 The workbench is a mathematical illustration of a rectangular block. It calculates volume from three simulated dimensions. It does not observe gravity, mass, your physical room, or a Matrix object. The lesson records participation and reflection; an incorrect response is not automatically a mastery pass.
+
+## Choose a visual format
+
+The workbench offers **Diagram**, **Data table**, and **Hide visual**. These display options do not change your saved experiment. The volume metrics, dimensions and conversation remain available if you hide the visual. See [replaceable lesson visual](Visual-Adapter.md).
 
 ## Where Matrix fits
 
@@ -39,7 +47,7 @@ The browser's **Apply experiment** still changes only its mathematical illustrat
 
 If School restarts, your successful demonstration history remains saved, but its temporary connection credentials are gone. Pending work becomes unconfirmed and is never automatically repeated. Inspect unresolved work in the original Operator before pairing again. You can always continue the browser lesson without Matrix. See [connection details and troubleshooting](Matrix-Bridge.md).
 
-Voice input, live historical avatars, additional lessons, hosted student sessions and in-headset teaching are subsequent roadmap work. Optional browser read-aloud uses an ordinary device voice. The text lesson remains available independently.
+Browser speech input is optional. Live historical avatars, additional lessons, hosted student sessions and in-headset teaching are subsequent roadmap work. Optional browser read-aloud uses an ordinary device voice. The text lesson remains available independently.
 
 ## Scale the block in Matrix
 

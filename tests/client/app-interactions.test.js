@@ -89,11 +89,65 @@ test('a remote-only voice leaves text fully usable without a cloud fallback', as
   assert.match(client.app.innerHTML, /data-action="advance"/);
   await client.click('home');
 });
+
+test('dictation fills an editable draft and never submits until the learner corrects and sends it', async t => {
+  const recognizers = [];
+  class Recognition {
+    constructor() { this.aborts = 0; recognizers.push(this); }
+    start() { this.onstart?.(); }
+    abort() { this.aborts++; }
+  }
+  const initial = session();
+  const client = await harness(t, (path, options) => {
+    if (path === '/api/v1/sessions' && options.method === 'POST') return { apiVersion: 1, session: initial };
+    if (path.endsWith('/sessions/session-1/turns')) return { apiVersion: 1, session: initial, turn: { id: 'voice-draft-turn', status: 'completed', kind: 'question' } };
+  }, undefined, Recognition);
+  await client.click('start');
+  assert.match(client.app.innerHTML, /Dictate draft/);
+  assert.match(client.app.innerHTML, /may process audio remotely/);
+  await client.click('dictation-start');
+  const recognizer = recognizers[0];
+  assert.match(client.app.innerHTML, /Stop dictation/);
+  const late = recognizer.onresult;
+  const final = [{ transcript: 'double width' }]; final.isFinal = true;
+  recognizer.onresult({ results: [final] });
+  assert.match(client.app.innerHTML, />double width<\/textarea>/);
+  assert.equal(client.calls.filter(call => call.path.endsWith('/turns')).length, 0);
+  late({ results: [final] });
+  client.input('What happens if I double width alone?');
+  await client.send();
+  const turns = client.calls.filter(call => call.path.endsWith('/turns'));
+  assert.equal(turns.length, 1);
+  assert.equal(turns[0].body.text, 'What happens if I double width alone?');
+  assert.equal(turns[0].body.kind, 'question');
+  await client.click('dictation-start');
+  const interrupted = recognizers[1];
+  const stale = interrupted.onresult;
+  await client.click('home');
+  assert.equal(interrupted.aborts, 1);
+  stale({ results: [final] });
+  assert.equal(client.calls.filter(call => call.path.endsWith('/turns')).length, 1);
+});
+
+test('switching or hiding the visual keeps lesson controls and saved evidence usable', async t => {
+  const client = await harness(t, (path, options) =>
+    path === '/api/v1/sessions' && options.method === 'POST' ? { apiVersion: 1, session: session() } : undefined);
+  await client.click('start');
+  const requests = client.calls.length;
+  await client.click('visual-mode', { mode: 'data' });
+  assert.match(client.app.innerHTML, /Simulated browser dimensions/);
+  assert.match(client.app.innerHTML, /Calculated volume/);
+  await client.click('visual-mode', { mode: 'off' });
+  assert.match(client.app.innerHTML, /Visual hidden/);
+  assert.match(client.app.innerHTML, /data-action="experiment"/);
+  assert.match(client.app.innerHTML, /Recorded: 1 × 1 × 1 browser units/);
+  assert.equal(client.calls.length, requests);
+});
 async function settle() { for (let i = 0; i < 12; i++) await tick(); }
 let importIndex = 0;
 
-async function harness(t, route = () => undefined, speech) {
-  const originals = { fetch: globalThis.fetch, document: globalThis.document, window: globalThis.window, speechSynthesis: globalThis.speechSynthesis, SpeechSynthesisUtterance: globalThis.SpeechSynthesisUtterance };
+async function harness(t, route = () => undefined, speech, recognition) {
+  const originals = { fetch: globalThis.fetch, document: globalThis.document, window: globalThis.window, speechSynthesis: globalThis.speechSynthesis, SpeechSynthesisUtterance: globalThis.SpeechSynthesisUtterance, SpeechRecognition: globalThis.SpeechRecognition, webkitSpeechRecognition: globalThis.webkitSpeechRecognition };
   const listeners = new Map(); const elements = new Map(); const calls = [];
   const app = { innerHTML: '', addEventListener(name, callback) { listeners.set(name, callback); } };
   const element = selector => {
@@ -104,6 +158,8 @@ async function harness(t, route = () => undefined, speech) {
   globalThis.window = { scrollTo() {} };
   globalThis.speechSynthesis = speech;
   globalThis.SpeechSynthesisUtterance = speech ? class { constructor(text) { this.text = text; } } : undefined;
+  globalThis.SpeechRecognition = recognition;
+  globalThis.webkitSpeechRecognition = undefined;
   globalThis.fetch = async (path, options) => {
     calls.push({ path, method: options.method, body: options.body ? JSON.parse(options.body) : undefined });
     let result = await route(path, options, calls);
