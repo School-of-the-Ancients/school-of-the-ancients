@@ -1,14 +1,41 @@
 import { createApiClient, escapeHtml as h, STAGES, STAGE_LABELS, ANSWER_LABELS, stageProgress, providerPresentation, normalDimensions, dimensionsEqual, volumeOf, numberLabel, makeRequestId, formatSavedAt, safeSourceUrl } from './client-core.js';
-import { scaleDiagram } from './scale-view.js';
+import { createScaleVisualAdapter, VISUAL_MODES } from './visual-adapter.js';
 import { createMatrixPanel } from './matrix-panel.js';
 import { createMentorSpeech } from './mentor-speech.js';
+import { createSpeechInput } from './speech-input.js';
 
 const api = createApiClient();
 const app = document.querySelector('#app');
-const state = { catalog: null, capabilities: [], sessions: [], session: null, turn: null, loading: true, busy: false, busyLabel: '', error: '', retry: null, notice: '', draft: '', intent: 'question', dimensions: [1, 1, 1], selectedMentor: '', selectedLesson: '', pollGeneration: 0 };
+const state = { catalog: null, capabilities: [], sessions: [], session: null, turn: null, loading: true, busy: false, busyLabel: '', error: '', retry: null, notice: '', draft: '', intent: 'question', dimensions: [1, 1, 1], visualMode: 'diagram', selectedMentor: '', selectedLesson: '', pollGeneration: 0 };
 let pollTimer;
 const matrixPanel = createMatrixPanel({ api, getSession: () => state.session, onSession: session => adoptSession(session), onChange: () => render() });
+const visualAdapter = createScaleVisualAdapter();
 const mentorSpeech = createMentorSpeech({ onChange: () => render() });
+const speechInput = createSpeechInput({
+  onChange: () => render(),
+  onTranscript: (text, sessionId) => {
+    if (sessionId !== state.session?.id || state.busy || state.turn?.status === 'running') return;
+    state.draft = [state.draft.trimEnd(), text].filter(Boolean).join(' ').slice(0, 4000);
+    render();
+    document.querySelector('#message-input')?.focus();
+  },
+});
+
+function syncInputContext() {
+  const session = state.session;
+  speechInput.setContext(session && session.status === 'active' && !state.busy && state.turn?.status !== 'running' ? session.id : null);
+}
+
+function speechInputControls() {
+  const input = speechInput.state();
+  const listening = input.status === 'starting' || input.status === 'listening';
+  const disabled = !input.canStart || state.busy || state.turn?.status === 'running';
+  const button = listening
+    ? '<button type="button" class="text-button" data-action="dictation-stop">Stop dictation</button>'
+    : '<button type="button" class="text-button" data-action="dictation-start" ' + (disabled ? 'disabled' : '') + '>Dictate draft</button>';
+  const status = input.reason || (listening ? (input.status === 'starting' ? 'Starting microphone…' : 'Listening for one response…') : 'Type or dictate, then review before sending.');
+  return '<div class="speech-input">' + button + '<span role="status">' + h(status) + '</span><small>Dictation is optional. Your browser may process audio remotely; check its privacy settings. Nothing sends until you review and submit the text.</small></div>';
+}
 
 function syncSpeechContext() {
   const session = state.session;
@@ -73,12 +100,18 @@ function stageRail(session) {
   return `<ol class="stage-rail" aria-label="Lesson progress">${STAGES.filter(stage => stage !== 'ended').map((stage, index) => `<li class="${index < stageIndex ? 'done' : ''} ${session.stage === stage ? 'current' : ''}" ${session.stage === stage ? 'aria-current="step"' : ''}><span class="stage-number">${index < stageIndex ? icons.check : index + 1}</span><span>${h(STAGE_LABELS[stage])}</span></li>`).join('')}</ol>`;
 }
 
+function visualControls() {
+  const labels = { diagram: 'Diagram', data: 'Data table', off: 'Hide visual' };
+  return '<div class="visual-switch" role="group" aria-label="Visual format">' + VISUAL_MODES.map(mode =>
+    '<button type="button" data-action="visual-mode" data-mode="' + mode + '" aria-pressed="' + (state.visualMode === mode) + '">' + labels[mode] + '</button>').join('') + '</div>';
+}
+
 function artifactPanel(session) {
   const committed = normalDimensions(session.artifact.dimensions);
   const dirty = !dimensionsEqual(committed, state.dimensions);
   const busy = state.busy || state.turn?.status === 'running' || session.status === 'completed';
   return `<aside class="experiment-panel" aria-labelledby="experiment-title"><div class="panel-heading"><div><span class="eyebrow">THE WORKBENCH</span><h2 id="experiment-title">Observation & scale</h2></div><span class="tiny-star" aria-hidden="true">✧</span></div>
-    <div class="artifact-visual" id="artifact-visual">${scaleDiagram(state.dimensions)}</div>
+    ${visualControls()}<div class="artifact-visual" id="artifact-visual">${visualAdapter.render(state.dimensions, state.visualMode)}</div>
     <div class="artifact-metrics" id="artifact-metrics"><div><span>VOLUME</span><strong>${numberLabel(volumeOf(state.dimensions))}<small> unit³</small></strong></div><div><span>VS. UNIT CUBE</span><strong>${numberLabel(volumeOf(state.dimensions))}<small> ×</small></strong></div></div>
     <div class="experiment-controls">${['Width', 'Height', 'Depth'].map((label, index) => `<label class="slider-label" for="dimension-${index}"><span>${label}</span><output id="dimension-output-${index}" for="dimension-${index}">${numberLabel(state.dimensions[index])}</output><input id="dimension-${index}" data-dimension="${index}" type="range" min="0.5" max="4" step="0.5" value="${state.dimensions[index]}" ${busy ? 'disabled' : ''}></label>`).join('')}
     <div class="preset-row"><button data-action="preset" data-values="2,2,2" ${busy ? 'disabled' : ''}>Double every side</button><button data-action="preset" data-values="2,1,1" ${busy ? 'disabled' : ''}>Width only</button><button data-action="preset" data-values="1,1,1" ${busy ? 'disabled' : ''}>Unit cube</button></div>
@@ -96,7 +129,7 @@ function conversation(session) {
   return `<section class="conversation-panel" aria-labelledby="conversation-title"><div class="conversation-heading"><div><span class="eyebrow">A CONVERSATION WITH</span><h2 id="conversation-title">${h(session.mentor.name)}</h2></div><span class="conversation-mode">${providerBadge()}</span></div>
     <div class="transcript" id="transcript" role="log" aria-live="polite" aria-relevant="additions text">${session.messages.map(message => `<article class="message ${h(message.role)}"><div class="message-avatar" aria-hidden="true">${message.role === 'mentor' ? 'G' : message.role === 'learner' ? 'Y' : '·'}</div><div class="message-body"><div class="message-meta"><strong>${message.role === 'mentor' ? h(session.mentor.name.split(' ')[0]) : message.role === 'learner' ? 'You' : 'Lesson note'}</strong>${message.role === 'mentor' ? `<span>${message.providerMode === 'codex-cli' ? 'AI RESPONSE' : 'AUTHORED'}</span>` : ''}</div><p>${h(message.text)}</p></div></article>`).join('')}${pending ? `<article class="message mentor pending-message"><div class="message-avatar" aria-hidden="true">G</div><div class="message-body"><div class="thinking-dots" aria-hidden="true"><i></i><i></i><i></i></div><p>${state.catalog?.provider?.mode === 'demo' ? 'Preparing the next part of your exploration…' : 'Considering your question…'}</p></div></article>` : ''}</div>
     ${speechControls()}
-    ${closed ? `<div class="completion-card"><span class="completion-symbol">${icons.check}</span><div><h3>A discovery worth keeping.</h3><p>${h(session.completionLabel || 'You completed this exploration. Your conversation and reflection are saved.')}</p><small>Completion records participation, not a mastery assessment.</small></div></div><div class="completion-actions"><button class="button" data-action="home">Return to the academy${icons.arrow}</button><button class="text-button" data-action="export">Export notebook</button></div>` : `<div class="conversation-composer"><div class="suggestions" aria-label="Suggested questions">${suggestions.slice(0, 2).map(text => `<button data-action="suggestion" data-text="${h(text)}" ${state.busy || pending ? 'disabled' : ''}>${h(text)}</button>`).join('')}</div><div class="intent-switch" role="group" aria-label="Message purpose"><button data-action="intent" data-value="question" aria-pressed="${state.intent === 'question'}" ${state.busy || pending ? 'disabled' : ''}>Ask a question</button><button data-action="intent" data-value="answer" aria-pressed="${state.intent === 'answer'}" ${state.busy || pending ? 'disabled' : ''}>Respond to the lesson</button></div><form id="message-form"><label class="sr-only" for="message-input">${h(label)}</label><textarea id="message-input" name="message" rows="2" maxlength="4000" placeholder="${state.intent === 'question' ? 'What are you curious about?' : h(session.stageContent.prompt)}" ${state.busy || pending ? 'disabled' : ''}>${h(state.draft)}</textarea><div class="composer-bottom"><span class="voice-unavailable" title="Type your questions here. Optional mentor playback is above the composer.">${icons.mic}<span>Type a question · audio optional</span></span>${pending ? `<button type="button" class="button button-small button-stop" data-action="cancel" ${state.busy ? 'disabled' : ''}>Stop response</button>` : `<button type="submit" class="button button-small" id="send-message" ${state.busy || !state.draft.trim() ? 'disabled' : ''}>${state.busy ? h(state.busyLabel) : h(label)}${icons.arrow}</button>`}</div></form><p class="composer-note">${state.intent === 'question' ? 'Questions keep you on the current lesson step.' : 'Your response advances the lesson after the mentor replies.'} <span>Enter to send · Shift + Enter for a new line</span></p></div>`}
+    ${closed ? `<div class="completion-card"><span class="completion-symbol">${icons.check}</span><div><h3>A discovery worth keeping.</h3><p>${h(session.completionLabel || 'You completed this exploration. Your conversation and reflection are saved.')}</p><small>Completion records participation, not a mastery assessment.</small></div></div><div class="completion-actions"><button class="button" data-action="home">Return to the academy${icons.arrow}</button><button class="text-button" data-action="export">Export notebook</button></div>` : `<div class="conversation-composer"><div class="suggestions" aria-label="Suggested questions">${suggestions.slice(0, 2).map(text => `<button data-action="suggestion" data-text="${h(text)}" ${state.busy || pending ? 'disabled' : ''}>${h(text)}</button>`).join('')}</div><div class="intent-switch" role="group" aria-label="Message purpose"><button data-action="intent" data-value="question" aria-pressed="${state.intent === 'question'}" ${state.busy || pending ? 'disabled' : ''}>Ask a question</button><button data-action="intent" data-value="answer" aria-pressed="${state.intent === 'answer'}" ${state.busy || pending ? 'disabled' : ''}>Respond to the lesson</button></div><form id="message-form"><label class="sr-only" for="message-input">${h(label)}</label><textarea id="message-input" name="message" rows="2" maxlength="4000" placeholder="${state.intent === 'question' ? 'What are you curious about?' : h(session.stageContent.prompt)}" ${state.busy || pending ? 'disabled' : ''}>${h(state.draft)}</textarea><div class="composer-bottom">${speechInputControls()}${pending ? `<button type="button" class="button button-small button-stop" data-action="cancel" ${state.busy ? 'disabled' : ''}>Stop response</button>` : `<button type="submit" class="button button-small" id="send-message" ${state.busy || !state.draft.trim() ? 'disabled' : ''}>${state.busy ? h(state.busyLabel) : h(label)}${icons.arrow}</button>`}</div></form><p class="composer-note">${state.intent === 'question' ? 'Questions keep you on the current lesson step.' : 'Your response advances the lesson after the mentor replies.'} <span>Enter to send · Shift + Enter for a new line</span></p></div>`}
   </section>`;
 }
 
@@ -112,6 +145,7 @@ function lesson() {
 }
 
 function render({ scrollTranscript = false } = {}) {
+  syncInputContext();
   syncSpeechContext();
   const restoreSpeechFocus = document.activeElement?.dataset?.action?.startsWith('speech-');
   const previousScroll = document.querySelector('#transcript')?.scrollTop || 0;
@@ -226,6 +260,7 @@ function sendTurn(kind, text = '') {
   if (!state.session || state.session.status === 'completed' || state.turn?.status === 'running' || state.busy) return;
   if (kind !== 'advance' && !text.trim()) return;
   mentorSpeech.stop();
+  speechInput.stop();
   const id = state.session.id;
   const submittedDraft = state.draft;
   const body = { requestId: makeRequestId(), expectedRevision: state.session.revision, kind, ...(text.trim() ? { text: text.trim() } : {}) };
@@ -251,7 +286,7 @@ async function exportSession() {
 function updateDiagram() {
   const visual = document.querySelector('#artifact-visual');
   const metrics = document.querySelector('#artifact-metrics');
-  if (visual) visual.innerHTML = scaleDiagram(state.dimensions);
+  if (visual) visual.innerHTML = visualAdapter.render(state.dimensions, state.visualMode);
   if (metrics) metrics.innerHTML = `<div><span>VOLUME</span><strong>${numberLabel(volumeOf(state.dimensions))}<small> unit³</small></strong></div><div><span>VS. UNIT CUBE</span><strong>${numberLabel(volumeOf(state.dimensions))}<small> ×</small></strong></div>`;
   const artifactState = document.querySelector('#artifact-state');
   const dirty = !dimensionsEqual(state.dimensions, state.session.artifact.dimensions);
@@ -280,11 +315,14 @@ app.addEventListener('click', async event => {
   if (!button || button.disabled) return;
   const action = button.dataset.action;
   if (action === 'speech-stop') { mentorSpeech.stop(); return; }
-  if (action === 'speech-play') { if (!state.busy && state.turn?.status !== 'running') mentorSpeech.play(); return; }
+  if (action === 'speech-play') { if (!state.busy && state.turn?.status !== 'running') { speechInput.stop(); mentorSpeech.play(); } return; }
+  if (action === 'dictation-stop') { speechInput.stop(); return; }
+  if (action === 'dictation-start') { mentorSpeech.stop(); speechInput.start(); return; }
   if (action === 'dismiss-error') { state.error = ''; state.retry = null; render(); return; }
   if (action === 'retry') { const retry = state.retry; state.error = ''; state.retry = null; await retry?.(); return; }
   if (action === 'bootstrap') { await bootstrap(); return; }
-  if (action === 'home') { if (state.busy || state.turn?.status === 'running') return; stopPolling(); matrixPanel.hide(); state.session = null; state.turn = null; state.error = ''; state.notice = ''; render(); window.scrollTo({ top: 0 }); return; }
+  if (action === 'home') { if (state.busy || state.turn?.status === 'running') return; speechInput.stop(); stopPolling(); matrixPanel.hide(); state.session = null; state.turn = null; state.error = ''; state.notice = ''; render(); window.scrollTo({ top: 0 }); return; }
+  if (action === 'visual-mode') { if (VISUAL_MODES.includes(button.dataset.mode)) { state.visualMode = button.dataset.mode; render(); } return; }
   if (state.busy) return;
   if (action.startsWith('matrix-')) { await matrixPanel.action(action.slice(7), button.dataset); return; }
   if (action === 'mentor') { state.selectedMentor = button.dataset.id; state.selectedLesson = state.catalog.lessons.find(lesson => lesson.mentorId === state.selectedMentor)?.id || ''; render(); }
@@ -312,6 +350,6 @@ app.addEventListener('click', async event => {
   if (action === 'export') await exportSession();
 });
 
-window.addEventListener?.('pagehide', () => mentorSpeech.stop());
-document.addEventListener?.('visibilitychange', () => { if (document.hidden) mentorSpeech.stop(); });
+window.addEventListener?.('pagehide', () => { mentorSpeech.stop(); speechInput.stop(); });
+document.addEventListener?.('visibilitychange', () => { if (document.hidden) { mentorSpeech.stop(); speechInput.stop(); } });
 void bootstrap();

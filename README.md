@@ -21,6 +21,8 @@ Your transcript, exact lesson version, recorded experiment and progress save on 
 
 For optional read-aloud, choose **Listen to latest reply** beneath the conversation. It uses a local English device voice when the browser provides one; **Stop audio** ends playback. Read the [mentor audio guide](Docs/Mentor-Speech.md) for availability and controls. Typed conversation remains available throughout.
 
+For optional input, choose **Dictate draft** in a supported browser. Correct the recognized text before sending. The browser may process microphone audio remotely; School does not store raw audio. See [speech input](Docs/Speech-Input.md).
+
 ### Use a real mentor response
 
 The optional Codex adapter uses an existing local **ChatGPT sign-in**. Configure a native Codex executable and a model available to that account, then start the service:
@@ -43,11 +45,11 @@ Live mode sends the selected lesson, recent conversation and recorded browser ex
 | Historical guide | One educational interpretation of Galileo; no invented historical testimony |
 | Prepared lesson | Explanation → example/prediction → guided experiment → explanation → reflection |
 | Conversation | Scripted demonstration or real Codex text responses; questions keep the current step |
-| Interactive visual | Deterministic width × height × depth illustration; recorded dimensions and volume |
+| Interactive visual | Replaceable deterministic scale view, data table or hidden visual; recorded dimensions and volume remain available |
 | Records | Atomic local saves, resume, export, cancellation, interrupted-turn recovery and request deduplication |
 | Matrix integration | Optional pairing, reviewed block placement and scale/reset presets, with saved runtime evidence |
 | Mentor read-aloud | Manual playback and stop for the latest saved reply, using a browser-reported local English voice |
-| Voice input and headset teaching | Planned optional adapters; unavailable in this candidate |
+| Voice input and headset teaching | Optional browser dictation fills an editable draft; headset teaching remains unavailable |
 
 Browser dimensions are simulated units. The illustration is not a Unity scene, measured room, or physical observation. No hosted deployment, multi-user authentication, durable Matrix event replay, or headset acceptance is claimed.
 
@@ -70,6 +72,8 @@ School owns mentors, teaching and learning records. Matrix owns scene/content ex
 
 - [User walkthrough](Docs/User-Guide.md)
 - [Optional mentor read-aloud](Docs/Mentor-Speech.md)
+- [Optional speech input](Docs/Speech-Input.md)
+- [Replaceable lesson visual](Docs/Visual-Adapter.md)
 - [Optional Matrix connection](Docs/Matrix-Bridge.md)
 - [Scale the lesson block in Matrix](Docs/Matrix-Scale-Lesson.md)
 - [Prepared exhibit packages and readiness](Docs/Prepared-Exhibits.md)

@@ -4,6 +4,35 @@ Reviewed 22 September 2026 before this standalone candidate was built. This is a
 
 The user's direction is authoritative: **sota-beta delivered a better experience; sota-v2 was an unsuccessful remake.** The existing Matrix Loader Operator is valuable and should remain an independent runtime that School can use. Neither a newer repository name nor an older architecture document makes v2 the mandatory future home of School.
 
+## Stage 2A inventory (verified 23 September 2026)
+
+Remote main still resolves to the pinned beta and v2 revisions below. This is a bounded source, test, documentation and issue review. No beta/v2 browser session, account or learner record was opened. The live side-by-side journey remains 2B.
+
+| Journey | Beta evidence | V2 evidence | New School candidate and loss |
+| --- | --- | --- | --- |
+| Mentor and goal | CharacterSelector, direct Speak, QuestCreator, built-in/custom characters | Mentor registry, goal/quest routes | Galileo and one authored lesson work. Custom mentors, free-form quests and the broad roster are absent. |
+| Conversation and show me | ConversationView combines text, useGeminiLive, ambience, environment and artifact callbacks | Lesson runtime and artifact/Operator modules; default text gateway constructs EchoTextProvider | Optional real text provider and deterministic diagram work. General image/scene generation and ambience are absent. Browser diagram is a calculation, not Matrix observation. |
+| Response and review | QuestQuiz, quiz results and progress | Authored lesson, assessment and progress modules | Prediction, experiment, explanation and reflection work; completion records participation, not mastery. |
+| Save and resume | useUserData, local snapshot/Supabase, HistoryView | Session repositories, Operator checkpoints, local state patterns | Atomic local transcript/session and export work. No beta/v2 import, account sync or immutable School checkpoint. |
+| Voice | Gemini Live microphone/transcript/playback in one hook | Voice interfaces; inspected default tutor is still echo | Optional local read-aloud works; this branch adds draft-only dictation. Beta's conversational voice remains absent. |
+| Matrix | No independent Matrix boundary in beta conversation hook | Existing Operator lesson path | Optional versioned client requests reviewed actions and records receipts. Matrix owns Apply/runtime state. |
+
+### Module decision and authority
+
+| Module | 2A decision |
+| --- | --- |
+| Identity | Adapt later. School alone owns learner identity; no account migration in this slice. |
+| Sessions/persistence | Keep the continuity experience; adapt v2 revision/receipt patterns. School owns lesson, turn, artifact and learner records. Preserve old records until import, conflict policy and rollback exist. |
+| Mentor/teaching | Keep beta portraits, direct entry and goals; adapt typed staged lessons. School owns teaching policy. Retire provider-driven lesson state and do not treat v2 echo output as tutoring. |
+| Assessment | Repair later. Retain quiz/review as an acceptance target; current completion is participation only. |
+| Visuals | Adapt selectively. School owns factual artifact identity/provenance/history; Matrix owns executable scenes and observations. Generated artwork needs its own labeled adapter and factual review. |
+| Voice | Retire live-session authority; adapt optional STT/TTS I/O. Disabled voice cannot block text turns. |
+| Matrix connector | Keep v2 compatibility; adapt through the versioned connector. School stores opaque correlation and minimal evidence; Matrix retains scene/action authority. |
+
+Existing issue ownership remains: beta #104/#106/#119/#252 cover STT, continuity, non-voice learning and text core; beta #108 flags factual visual quality. V2 #27-#29, #64 and #65-#69 cover artifact records, voice, beta experience planning and visual adapters. None is automatically closed or ported. Curriculum/profile issues remain future work.
+
+**Provisional 2A choice:** continue the established School-of-the-Ancients/school-of-the-ancients app for the small #13 slice. This does not retire beta/v2. Rollback is to stop this separate service and return to untouched products/records. Broader ownership or migration awaits 2B user review.
+
 ## Inspected source
 
 | Source | Pinned revision | What was inspected |
