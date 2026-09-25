@@ -7,6 +7,7 @@ import type { RequestReceipt, SchoolStore } from './repository.ts';
 import type { MentorProvider } from './providers.ts';
 import { MatrixLessonBridge } from './matrix-bridge.ts';
 import type { MatrixClientOptions } from '../integrations/matrix-client.ts';
+import { validMentorDemonstration } from '../shared/mentor-demonstration.ts';
 
 const now = () => new Date().toISOString();
 const MAX_CONCURRENT_PROVIDER_TURNS = 3;
@@ -66,6 +67,7 @@ export class SchoolService {
       { id: 'experiment.scale.v1', version: 1, available: true, reason: 'Deterministic browser geometry illustration; not a Unity or physical-room observation.' },
       { id: 'mentor.voice.v1', version: 1, available: false, reason: 'Conversational voice input and a server voice provider are not connected. Optional device speech playback is detected in the browser.' },
       { id: 'matrix.scene.v1', version: 1, available: true, reason: 'Optional local companion adapter. Each lesson needs explicit pairing and current readiness; the Matrix owner controls Apply.' },
+      { id: 'mentor.demonstration-intent.v1', version: 1, available: true, reason: 'Mentor scene suggestions are saved as data. Sending one requires a paired Matrix Codex planner; only its Operator can Apply.' },
     ] };
   }
   listSessions() { return { apiVersion: 1 as const, sessions: Object.values(this.repository.snapshot().sessions).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)) }; }
@@ -127,14 +129,17 @@ export class SchoolService {
       const result = await this.provider.respond({ session: initial.session, turn: initial.turn, target: stageContent(initial.session.lesson, target) }, controller.signal);
       if (this.closed || controller.signal.aborted) return;
       requireValue(typeof result.text === 'string' && result.text.trim().length > 0 && result.text.length <= 8000 && result.receipt.completedTurn === true && result.receipt.toolCallCount === 0 && ['demo', 'codex-cli'].includes(result.receipt.mode), 502, 'provider_invalid', 'The mentor returned invalid teaching text.');
+      requireValue(result.demonstration === undefined || validMentorDemonstration(result.demonstration), 502, 'provider_invalid', 'The mentor returned an invalid demonstration suggestion.');
       this.repository.mutate((store) => {
         const turn = getTurn(store, initial.turn.id); if (turn.status !== 'running') return;
         const session = getSession(store, turn.sessionId); requireValue(session.activeTurnId === turn.id, 409, 'turn_stale', 'The active teaching turn changed.');
         turn.status = 'completed'; turn.completedAt = now(); turn.output = result.text; turn.receipt = result.receipt;
+        if (result.demonstration) turn.demonstration = structuredClone(result.demonstration);
         if (session.stage !== target) session.events.push({ id: randomUUID(), type: 'stage_changed', stage: target, createdAt: now(), details: `Advanced from ${session.stage} to ${target}; participation recorded, not mastery.` });
         session.stage = target; session.stageContent = stageContent(session.lesson, target); session.status = target === 'ended' ? 'completed' : 'active';
         if (target === 'ended') session.completionLabel = 'Activity completed. Prediction, experiment, explanation, and reflection recorded. Mastery was not assessed.';
-        session.messages.push({ id: randomUUID(), role: 'mentor', text: result.text, stage: target, turnId: turn.id, createdAt: now(), providerMode: result.receipt.mode });
+        session.messages.push({ id: randomUUID(), role: 'mentor', text: result.text, stage: target, turnId: turn.id, createdAt: now(), providerMode: result.receipt.mode,
+          ...(result.demonstration ? { demonstration: structuredClone(result.demonstration) } : {}) });
         delete session.activeTurnId; touch(session);
       });
     } catch (error) {

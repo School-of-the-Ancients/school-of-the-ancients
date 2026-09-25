@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "dateUtc": "2026-09-22",
+  "status": "passed",
+  "scope": "Live Galileo Codex suggestion to Matrix Codex planning to isolated Windows Unity runtime and evidence-based Galileo reflection",
+  "schoolBaseCommit": "d2a966b48ff64d6eb9b4ae3f0a63a87e9d05c955",
+  "matrixCommit": "d7fdb511864fd04e228284ead2fe3af08fe97a60",
+  "sourceSha256": {
+    "schoolService": "07e19a547bdfbd01a32fd80b5a17cbe7856332facc6cb90758372b0b5c471d07",
+    "schoolBridge": "e17a0d2c2bd5e05373aa1dec4ff5e372ccfaa4c54e02c4877a0f5b2ca9bd1a7a",
+    "schoolProvider": "3e68fb1fe69feb325e77c4c6fc2961fd38b07faf1cf3a337abeb394c00c40a81",
+    "matrixClientApi": "1ce1e27fd24416f7b1d592f7a7d23c6e36fad19d696b81733b3f2c745dc37693",
+    "matrixServer": "23ee918e6f36ac63f6213cfc50bad90fc5ddc1293dc1f8c0a21645f364668d24",
+    "acceptanceRunner": "ff6dcb80ecba73caf3654a13eb77cbf4e37b48533ec6a1484adb765f1531dc69",
+    "reusedRunner": "09d41c66c8e76a21032fdbe9e34f9f3c7b9da13231bbb782ae1b98d3987b596d"
+  },
+  "player": {
+    "identity": "Matrix Operator Validation cached-restore-reviewed-20260922",
+    "target": "StandaloneWindows64",
+    "unityVersion": "6000.6.0f1",
+    "exeSha256": "718444f6a718fa668da96eb0a58445b009673310e6129152a63dbf7a92b8de00",
+    "runtimeAssemblySha256": "b8fb9354e11b960477c76e22e4e0bd335d1c918ca2345d68940a2ed9c94c6816"
+  },
+  "liveInference": {
+    "provider": "Codex CLI via existing ChatGPT sign-in",
+    "requestedModel": "gpt-5.6-sol",
+    "calls": 3,
+    "mentorSuggestion": "completed without tool calls; saved a typed scene suggestion",
+    "matrixPlanner": "completed without tool calls; proposed two built-in block spawns",
+    "mentorReflection": "completed without tool calls; described two successful command acknowledgments as historical execution evidence and did not claim physical measurement or mastery"
+  },
+  "runtime": {
+    "initialRoom": "white-room-v1",
+    "proposalRequiresOperatorApply": true,
+    "ownerApply": "automated authenticated harness after exact two-block allowlist inspection",
+    "reviewedOperations": ["spawn built-in block at scale 0.2 x 0.2 x 0.2", "spawn built-in block at scale 0.4 x 0.2 x 0.2"],
+    "successfulReceipts": 2,
+    "failedReceipts": 0,
+    "sceneAddedObjects": 2,
+    "actualTransformMatchesProposal": true,
+    "lessonStageUnchanged": true,
+    "browserArtifactUnchanged": true,
+    "teachingGoalVerified": false
+  },
+  "checksPassed": 24,
+  "cleanup": {
+    "ownedPlayerStopped": true,
+    "ownedSchoolStopped": true,
+    "ownedMatrixStopped": true,
+    "temporaryControlRemoved": true,
+    "preexistingContentCacheUnchanged": true
+  },
+  "limits": [
+    "This was an isolated Windows White Room runtime, not Quest or passthrough acceptance.",
+    "The Operator Apply action was performed by the bounded harness, not a human in the UI.",
+    "No visual rendering inspection, physical measurement or learning mastery evaluation was performed.",
+    "The report identifies the requested model; the CLI did not provide an independently verified resolved model identifier."
+  ]
+}

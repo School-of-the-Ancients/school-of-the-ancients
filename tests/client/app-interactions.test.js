@@ -89,6 +89,21 @@ test('a remote-only voice leaves text fully usable without a cloud fallback', as
   assert.match(client.app.innerHTML, /data-action="advance"/);
   await client.click('home');
 });
+
+test('a saved mentor suggestion appears beside conversation and Build opens connection without submitting a scene', async t => {
+  const initial = session(); initial.messages[0].turnId = 'completed-mentor-turn';
+  initial.messages[0].demonstration = { kind: 'matrix-scene', title: 'Compare <three> blocks', learningGoal: 'See scale clearly.', prompt: 'Place three blocks for comparison.' };
+  const client = await harness(t, (path, options) => {
+    if (path === '/api/v1/sessions' && options.method === 'POST') return { apiVersion: 1, session: initial };
+    if (path === '/api/v1/sessions/session-1/matrix') return { apiVersion: 1, session: initial, bridge: { connected: false, binding: null, readiness: null, demonstrations: [], sceneBuilds: [], sceneBuilder: { available: false, reason: 'Connect first.' } } };
+  });
+  await client.click('start'); assert.match(client.app.innerHTML, /Compare &lt;three&gt; blocks/); assert.match(client.app.innerHTML, /Scene request/);
+  assert.equal(client.calls.filter(call => call.path.includes('/matrix')).length, 0);
+  await client.click('matrix-scene-build', { turnId: 'completed-mentor-turn' });
+  assert.deepEqual(client.calls.filter(call => call.path.includes('/matrix')).map(call => [call.method, call.path]), [['GET', '/api/v1/sessions/session-1/matrix']]);
+  assert.match(client.app.innerHTML, /Temporary pairing code/); assert.match(client.app.innerHTML, /Build this demonstration/);
+  assert.equal(client.calls.filter(call => call.method === 'POST').length, 1); await client.click('home');
+});
 async function settle() { for (let i = 0; i < 12; i++) await tick(); }
 let importIndex = 0;
 

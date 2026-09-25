@@ -1,4 +1,6 @@
 /** Versioned standalone School contract. Matrix is an optional integration, not a prerequisite. */
+import type { MentorDemonstrationIntent } from './mentor-demonstration.ts';
+export type { MentorDemonstrationIntent } from './mentor-demonstration.ts';
 export const API_VERSION = 1 as const;
 export type LessonStage = 'explain' | 'example' | 'guided_practice' | 'socratic_check' | 'recap' | 'ended';
 export type TurnKind = 'question' | 'answer' | 'advance';
@@ -22,6 +24,7 @@ export interface ScaleArtifact {
 export interface LessonMessage {
   id: string; role: 'learner' | 'mentor' | 'system'; text: string; stage: LessonStage;
   createdAt: string; turnId?: string; providerMode?: ProviderMode;
+  demonstration?: MentorDemonstrationIntent;
 }
 export interface LessonEvent { id: string; type: 'session_started' | 'stage_changed' | 'experiment_applied' | 'turn_cancelled' | 'turn_failed' | 'turn_interrupted'; createdAt: string; stage: LessonStage; details: string; }
 export interface SchoolSession {
@@ -42,6 +45,7 @@ export interface ProviderReceipt { mode: ProviderMode; requestedModel?: string; 
 export interface MentorTurn {
   id: string; sessionId: string; requestId: string; kind: TurnKind; status: TurnStatus; input: string;
   stage: LessonStage; createdAt: string; completedAt?: string; output?: string; error?: string; receipt?: ProviderReceipt;
+  demonstration?: MentorDemonstrationIntent;
 }
 export interface CatalogResponse { apiVersion: 1; mentors: Mentor[]; lessons: Lesson[]; provider: ProviderStatus; }
 export interface SessionResponse { apiVersion: 1; session: SchoolSession; }
@@ -84,6 +88,21 @@ export interface MatrixDemonstration {
 export interface MatrixLessonLedger {
   bindings: MatrixBindingRecord[]; activeBindingId?: string; demonstrations: MatrixDemonstration[];
   experiments?: MatrixScaleExperiment[];
+  sceneBuilds?: MatrixSceneBuild[];
+}
+/** One saved teaching intent, one reviewed Matrix request, and minimal historical execution evidence. */
+export interface MatrixSceneBuild {
+  id: string; bindingId: string; matrixSessionId: string; runtimeSessionId: string; correlationId: string;
+  turnId: string; stage: LessonStage; intent: MentorDemonstrationIntent;
+  expectedMatrixRevision: number; status: MatrixDemonstrationStatus; requiresApply: boolean; sequence: number;
+  createdAt: string; updatedAt: string; proposalSummary: string | null;
+  commandIds: string[]; receipts: MatrixDemonstration['receipts'];
+  observed: { source: 'matrix-runtime'; revision: number; confirmedCommandCount: number; failedCommandCount: number; objectIds: string[] }
+    | { source: 'matrix-pc-save'; revision: number; savedScene: string } | null;
+  error: string | null; lastCheckedAt?: string; checkError?: string;
+  /** Digest of the full transient Matrix outcome guards equal-sequence rewriting without retaining scene data. */
+  outcomeDigest?: string;
+  proposalDigest?: string;
 }
 export interface MatrixScaleExperiment {
   id: string; bindingId: string; demonstrationId: string; matrixSessionId: string; runtimeSessionId: string; correlationId: string;
@@ -102,10 +121,13 @@ export interface MatrixBridgeResponse extends SessionResponse {
     checkedAt: string | null; reason: string; operatorUrl: string | null;
     demonstrations: MatrixDemonstration[];
     experiments: MatrixScaleExperiment[];
+    sceneBuilds: MatrixSceneBuild[];
+    sceneBuilder: { available: boolean; reason: string; expectedMatrixRevision?: number };
     scale: { available: boolean; reason: string; expectedMatrixRevision?: number; demonstrationId?: string; latestExperimentId?: string };
   };
   demonstration?: MatrixDemonstration;
   experiment?: MatrixScaleExperiment;
+  sceneBuild?: MatrixSceneBuild;
 }
 export interface MatrixPairRequest { requestId: string; expectedRevision: number; url: string; pairingCode: string; }
 export interface MatrixDisconnectRequest { requestId: string; expectedRevision: number; }

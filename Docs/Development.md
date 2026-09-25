@@ -56,7 +56,7 @@ node --test tests/integration/school-matrix-http.test.ts
 
 The second file tests three School HTTP paths: virtual placement, AR placement and virtual scale/reset. It reopens School's durable records to verify confirmed evidence survives and unfinished work is not replayed. Together the two files contain four cross-repository tests. Without `MATRIX_CHECKOUT`, all four skip explicitly; ordinary tests still exercise deterministic transport, preflight and bridge fixtures. With an older Matrix checkout, only the scale case may skip unless `MATRIX_REQUIRE_SCALE=1`, which requires the capability and fails if it is absent. These checks use synthetic runtime receipts and do not establish Unity or headset acceptance.
 
-GitHub Actions runs all four cases on Windows and Ubuntu. It checks out Matrix commit `ddb2a0df065321104244f31bbb0af367e3524dec` beside the School checkout, sets `MATRIX_CHECKOUT` and `MATRIX_REQUIRE_SCALE=1`, and runs the complete Node test suite and type check. Separate checkout directories keep Matrix's unrelated files outside Node test discovery. CI uses Node 24 and Python 3.13, with read-only repository permissions; it does not call a live model or headset.
+GitHub Actions runs all four cases on Windows and Ubuntu. It checks out Matrix commit `d7fdb511864fd04e228284ead2fe3af08fe97a60` beside the School checkout, sets `MATRIX_CHECKOUT` and `MATRIX_REQUIRE_SCALE=1`, and runs the complete Node test suite and type check. Separate checkout directories keep Matrix's unrelated files outside Node test discovery. CI uses Node 24 and Python 3.13, with read-only repository permissions; it does not call a live model or headset.
 
 CI also runs the Windows acceptance runner's portable cleanup regressions using isolated fake processes and temporary files:
 
@@ -65,6 +65,8 @@ python -B -m unittest discover -s tests -p test_windows_acceptance_runner.py -v
 ```
 
 These four Python tests exercise failure cleanup and preservation of pre-existing configuration on either platform. They do not launch Unity or substitute for the separate actual Windows-player acceptance run.
+
+The optional [live mentor-to-scene Windows runner](Mentor-Scene-Windows-Validation.md) separately checks the full Galileo suggestion → Matrix Codex proposal → narrowly reviewed Apply → actual Unity receipts → Galileo reflection sequence. Its [sanitized September 22 result](../Validation/mentor-scene-windows.json) passed 24 checks. It records desktop runtime execution, with Quest alignment and rendering still to be checked on device.
 
 ### Separate local companion sample
 

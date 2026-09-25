@@ -1,11 +1,13 @@
 import type { MatrixLessonLedger } from '../shared/contracts.ts';
 import { requireValue, SchoolError } from './errors.ts';
+import { validMentorDemonstration } from '../shared/mentor-demonstration.ts';
 
 export const MATRIX_ACTIVE_STATUSES = new Set(['submitting', 'planning', 'ready', 'queued', 'running']);
 export const MATRIX_STATUSES = [...MATRIX_ACTIVE_STATUSES, 'succeeded', 'failed', 'partial', 'cancelled', 'stale', 'unconfirmed', 'needs_clarification', 'review_only', 'error'];
 export const MAX_MATRIX_BINDINGS = 16;
 export const MAX_MATRIX_DEMONSTRATIONS = 64;
 export const MAX_MATRIX_EXPERIMENTS = 64;
+export const MAX_MATRIX_SCENE_BUILDS = 64;
 export const MATRIX_BLOCKING_STATUSES = new Set([...MATRIX_ACTIVE_STATUSES, 'unconfirmed']);
 const record = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
 const text = (v: unknown, max = 512) => typeof v === 'string' && v.length <= max && !/[\u0000-\u001f]/.test(v);
@@ -25,7 +27,7 @@ export function localMatrixOrigin(value: unknown): string {
 
 /** Exact field allowlists prevent accidentally persisting bearer tokens, pairing codes or room dumps. */
 export function validateMatrixLedger(value: unknown): asserts value is MatrixLessonLedger {
-  check(record(value)); keys(value, ['bindings', 'activeBindingId', 'demonstrations', 'experiments']);
+  check(record(value)); keys(value, ['bindings', 'activeBindingId', 'demonstrations', 'experiments', 'sceneBuilds']);
   check(Array.isArray(value.bindings) && value.bindings.length <= MAX_MATRIX_BINDINGS && Array.isArray(value.demonstrations) && value.demonstrations.length <= MAX_MATRIX_DEMONSTRATIONS);
   const bindingIds = new Set<string>();
   for (const binding of value.bindings) {
@@ -139,6 +141,45 @@ export function validateMatrixLedger(value: unknown): asserts value is MatrixLes
     }
     check(experiment.status !== 'succeeded' || experiment.observed !== null);
     experimentIds.add(experiment.id as string);
+  }
+
+  check(value.sceneBuilds === undefined || Array.isArray(value.sceneBuilds) && value.sceneBuilds.length <= MAX_MATRIX_SCENE_BUILDS);
+  const buildIds = new Set<string>(), turnIds = new Set<string>();
+  for (const build of value.sceneBuilds ?? []) {
+    check(record(build)); keys(build, ['id','bindingId','matrixSessionId','runtimeSessionId','correlationId','turnId','stage','intent','expectedMatrixRevision','status','requiresApply','sequence','createdAt','updatedAt','proposalSummary','commandIds','receipts','observed','error','lastCheckedAt','checkError','outcomeDigest','proposalDigest']);
+    check(id(build.id) && !buildIds.has(build.id as string) && !demonstrationIds.has(build.id as string) && !experimentIds.has(build.id as string)); buildIds.add(build.id as string);
+    check(id(build.turnId) && !turnIds.has(build.turnId as string)); turnIds.add(build.turnId as string);
+    const binding = value.bindings.find(item => item.id === build.bindingId);
+    check(binding && build.matrixSessionId === binding.matrixSessionId && build.runtimeSessionId === binding.runtimeSessionId && build.correlationId === build.id);
+    check(validMentorDemonstration(build.intent) && enumValue(build.stage, ['explain','example','guided_practice','socratic_check','recap','ended']));
+    check(integer(build.expectedMatrixRevision) && integer(build.sequence) && enumValue(build.status, MATRIX_STATUSES) && typeof build.requiresApply === 'boolean' && date(build.createdAt) && date(build.updatedAt));
+    check(build.proposalSummary === null || text(build.proposalSummary,1000)); check(build.error === null || text(build.error)); check(build.checkError === undefined || text(build.checkError)); check(build.lastCheckedAt === undefined || date(build.lastCheckedAt));
+    check(build.outcomeDigest === undefined || typeof build.outcomeDigest === 'string' && /^[a-f0-9]{64}$/.test(build.outcomeDigest));
+    check(build.proposalDigest === undefined || typeof build.proposalDigest === 'string' && /^[a-f0-9]{64}$/.test(build.proposalDigest));
+    check(Array.isArray(build.commandIds) && build.commandIds.length <= 20 && build.commandIds.every(id) && new Set(build.commandIds).size === build.commandIds.length);
+    check(Array.isArray(build.receipts) && build.receipts.length <= build.commandIds.length);
+    const received = new Set<string>();
+    for (const ack of build.receipts) { check(record(ack)); keys(ack,['requestId','ok','error','objectId']); check(typeof ack.requestId === 'string' && build.commandIds.includes(ack.requestId) && !received.has(ack.requestId) && typeof ack.ok === 'boolean' && text(ack.error) && (ack.objectId === '' || id(ack.objectId))); received.add(ack.requestId); }
+    check(build.requiresApply === (build.status === 'ready'));
+    if (enumValue(build.status,['submitting','planning','ready','cancelled','stale','needs_clarification','review_only','error'])) check(build.commandIds.length === 0 && build.receipts.length === 0 && build.observed === null);
+    if (enumValue(build.status,['queued','running'])) check(build.commandIds.length > 0 && build.receipts.length < build.commandIds.length && build.observed === null);
+    if (build.observed !== null) {
+      const observed = build.observed; check(record(observed));
+      check(integer(observed.revision) && Number(observed.revision) >= Number(build.expectedMatrixRevision));
+      if (observed.source === 'matrix-runtime') {
+        keys(observed,['source','revision','confirmedCommandCount','failedCommandCount','objectIds']);
+        check(enumValue(build.status,['succeeded','failed','partial']) && build.commandIds.length > 0 && build.receipts.length === build.commandIds.length);
+        const successes = build.receipts.filter(ack => ack.ok).length;
+        check(observed.confirmedCommandCount === successes && observed.failedCommandCount === build.receipts.length - successes);
+        check(build.status === (successes === build.receipts.length ? 'succeeded' : successes === 0 ? 'failed' : 'partial'));
+        const acknowledgements = build.receipts;
+        check(Array.isArray(observed.objectIds) && observed.objectIds.length <= 20 && observed.objectIds.every(id) && new Set(observed.objectIds).size === observed.objectIds.length && observed.objectIds.every(objectId => acknowledgements.some(ack => ack.ok && ack.objectId === objectId)));
+      } else {
+        keys(observed,['source','revision','savedScene']);
+        check(observed.source === 'matrix-pc-save' && build.status === 'succeeded' && text(observed.savedScene,64) && typeof observed.savedScene === 'string' && /^[a-zA-Z0-9][a-zA-Z0-9 _-]{0,63}$/.test(observed.savedScene) && build.commandIds.length === 0 && build.receipts.length === 0);
+      }
+    }
+    check(!enumValue(build.status,['succeeded','failed','partial']) || build.observed !== null);
   }
 
 }
