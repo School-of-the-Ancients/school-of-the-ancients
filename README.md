@@ -1,10 +1,10 @@
 # School of the Ancients
 
-A provisional text-first School implementation: historical mentor, prepared lesson, interactive visual, and durable conversation. This candidate preserves useful ideas from the older beta without coupling the learning session to a live audio model.
+School of the Ancients is the teaching product: historical mentors, prepared lessons, interactive learning, assessment and durable learner records.
 
-**School and [Matrix Loading Operator](https://github.com/School-of-the-Ancients/matrix-loading-operator) are independent products.** School owns learning and mentor conversation; Matrix owns scenes, content and observed runtime actions. An optional versioned connector joins them.
+**School and [Matrix Loading Operator](https://github.com/School-of-the-Ancients/matrix-loading-operator) are independent products.** School owns learning and mentor conversation; Matrix owns worlds, Operator, creation, AI Citizens and observed runtime actions. An optional versioned connector joins them.
 
-This repository is an implementation candidate for [roadmap #13](https://github.com/School-of-the-Ancients/school-of-the-ancients-roadmap/issues/13), not an automatic migration of beta/v2 or their records. See the [organization plan](https://github.com/School-of-the-Ancients/school-of-the-ancients-roadmap) and [Kanban](https://github.com/orgs/School-of-the-Ancients/projects/1).
+**This repository is the canonical home for School implementation and planning.** See [ROADMAP.md](ROADMAP.md) for Now / Next / Later. The separate [organization roadmap](https://github.com/School-of-the-Ancients/school-of-the-ancients-roadmap) is only for cross-project coordination/research; it is not a second School backlog.
 
 ## Try the first lesson
 
